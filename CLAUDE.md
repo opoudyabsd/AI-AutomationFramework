@@ -19,7 +19,7 @@
 ```sh
 src/
   testData/
-    constants.ts
+    constants.ts       # Static variables that should be used in test files or POM
     testData.ts        # Data related to the test
   pages/               # Page Object Models (.ts classes)
   tests/               # All .spec.ts test files (flat, one file per feature area)
@@ -27,6 +27,8 @@ src/
     fixtures/          # Playwright custom fixtures (test extensions)
     helpers/           # Pure utility functions (no Playwright imports if possible)
 docs/
+  userstory/           # Folder with all user stories sets
+    userStory.md       # User story.md file contains a list of user stories for specific feature/functionality
   testCases/           # Folder with existed test cases
     testType/          # Regression, smoke, e2e, performace. Only this 4 testing type should be used
       feature|component/ # Each feature should be separted by specific folder
@@ -165,13 +167,13 @@ await page.waitForTimeout(300); // allow MathQuill to render
 ```
 
 - Do **not** use `locator.fill()` on MathQuill fields — it will not work.
-
 - For special symbols (`^`, `sqrt`, etc.) use `keyboard.type()` directly.
 
 ### Canvas Assertions
 
 - The graph renders on HTML5 Canvas — **never assert pixel content directly**.
 - Instead assert via DOM proxy signals:
+
    - Slider elements appear after an expression with undefined variables
    - Points-of-Interest (POI) label elements appear after clicking a curve
    - Error indicators (`.dcg-expressionitem .dcg-error`) are absent

@@ -4,23 +4,6 @@
 
 ---
 
-## 1. Application Identity
-
-| Property         | Value                                                  |
-|------------------|--------------------------------------------------------|
-| **Name**         | Desmos Graphing Calculator                             |
-| **URL**          | https://www.desmos.com/calculator                      |
-| **Owner**        | Desmos Studio PBC                                      |
-| **Type**         | Web Application (SPA — Single Page Application)        |
-| **Launched**     | 2011                                                   |
-| **Cost**         | Free (registration optional)                           |
-| **Tech Stack**   | TypeScript, JavaScript, HTML, CSS                      |
-| **Math Input**   | MathQuill (open-source library by Desmos)              |
-| **Rendering**    | HTML5 Canvas + SVG                                     |
-| **Mobile Apps**  | Available on iOS and Android                           |
-
----
-
 ## 2. Application Purpose
 
 Desmos is an advanced graphing calculator implemented as a web application. Its primary purpose is to allow users to:
@@ -33,86 +16,7 @@ Desmos is an advanced graphing calculator implemented as a web application. Its 
 
 It is used globally by students, educators, and mathematicians. A modified version is embedded in standardized tests including the SAT, STAAR, Virginia SOL, and CAASPP. It is also integrated into AP Exams (2025+) where calculators are permitted.
 
----
-
-## 3. Page Layout & UI Structure
-
 The calculator page is composed of the following major UI regions:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  TOOLBAR (top bar)                                          │
-│  [☰ Menu]  [Desmos Logo]  [Undo][Redo]  [Save]  [Share]   │
-├───────────────────────┬─────────────────────────────────────┤
-│                       │                                     │
-│   EXPRESSION LIST     │        GRAPH CANVAS                 │
-│   (left panel)        │        (main rendering area)        │
-│                       │                                     │
-│  - Line 1: input      │   ← SVG / Canvas render area →     │
-│  - Line 2: input      │                                     │
-│  - Line 3: ...        │         [+] [-] [⌂] zoom controls  │
-│                       │                                     │
-│  [+ Add Item button]  │                                     │
-├───────────────────────┴─────────────────────────────────────┤
-│  KEYPAD (optional, toggled on/off)                          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 3.1 Toolbar (Top Bar)
-
-| Element              | Description                                              |
-|----------------------|----------------------------------------------------------|
-| Hamburger Menu (☰)   | Opens navigation: Examples, Account, Settings, Language  |
-| Desmos Logo          | Clickable; links to desmos.com homepage                  |
-| Undo button          | Reverts last expression/graph action                     |
-| Redo button          | Re-applies reverted action                               |
-| Save button          | Saves graph to account (prompts login if not signed in)  |
-| Share button         | Opens share dialog with permalink and image export       |
-
-### 3.2 Expression List (Left Panel)
-
-The left panel is the primary input area. It is a scrollable list of **expression lines**, each of which can contain:
-
-| Item Type      | Description                                              |
-|----------------|----------------------------------------------------------|
-| **Expression** | Mathematical equation, function, inequality, or value    |
-| **Table**      | Grid of x/y data values for plotting                     |
-| **Note**       | Free-text annotation (non-mathematical)                  |
-| **Image**      | Uploaded image placed onto the graph canvas              |
-| **Folder**     | Collapsible group for organizing multiple expressions    |
-
-Each expression line has:
-- A **color picker** dot (left side) to change graph color
-- A **math input field** (powered by MathQuill)
-- A **visibility toggle** (eye icon) to show/hide on graph
-- A **delete button** (×) on hover
-- A **settings icon** for expression-specific options (line style, etc.)
-
-An **"Add Item" (+) button** at the bottom of the list allows inserting new expressions, tables, notes, images, or folders.
-
-### 3.3 Graph Canvas (Main Area)
-
-- Renders using **HTML5 Canvas and SVG**
-- Supports pan (click and drag) and zoom (scroll wheel, pinch, or buttons)
-- Displays **Points of Interest** (x-intercepts, y-intercepts, intersections, maxima, minima) when a curve is selected
-- Shows **coordinate labels** on hover over points of interest
-- Axes are labeled and scale dynamically with zoom level
-
-### 3.4 Zoom Controls
-
-Located at the bottom-right of the canvas:
-
-| Control      | Action                              |
-|--------------|-------------------------------------|
-| `+` button   | Zoom in                             |
-| `−` button   | Zoom out                            |
-| `⌂` button   | Reset to default view               |
-
-### 3.5 Keypad (Optional)
-
-- Toggled via a button in the bottom-left of the expression panel
-- Provides on-screen keys for math symbols, functions, Greek letters, etc.
-- Useful for touch devices; can be hidden on desktop
 
 ---
 
@@ -165,10 +69,12 @@ Located at the bottom-right of the canvas:
 ### 4.7 Points of Interest
 
 - When a curve is selected, the calculator automatically identifies and displays:
-  - x-intercepts
-  - y-intercepts
-  - Local maxima and minima
-  - Intersections with other plotted curves
+
+   - x-intercepts
+   - y-intercepts
+   - Local maxima and minima
+   - Intersections with other plotted curves
+
 - Hovering over a point reveals its coordinates
 - Clicking a point pins the label to the canvas
 - Points can be exported to the expression list
@@ -193,19 +99,6 @@ Located at the bottom-right of the canvas:
 
 - Added November 2023
 - Users can produce tones of a specified frequency and gain directly from graph expressions
-
----
-
-## 5. Additional Desmos Tools (Same Domain)
-
-| Tool                     | URL                                  |
-|--------------------------|--------------------------------------|
-| Scientific Calculator    | https://www.desmos.com/scientific    |
-| Four Function Calculator | https://www.desmos.com/fourfunction  |
-| Matrix Calculator        | https://www.desmos.com/matrix        |
-| Geometry Tool            | https://www.desmos.com/geometry      |
-| 3D Graphing Calculator   | https://www.desmos.com/3d            |
-| Test Mode                | https://www.desmos.com/testing       |
 
 ---
 
@@ -280,7 +173,7 @@ Located at the bottom-right of the canvas:
 
 ### 8.4 Recommended Selector Strategies
 
-```
+```ini
 Expression lines:     .dcg-expressionlist .dcg-expressionitem
 Math input field:     .dcg-mq-editable-field (MathQuill)
 Add item button:      [aria-label="Add Item"]
@@ -296,16 +189,6 @@ Eye toggle (visible): .dcg-expression-icon-hidden / .dcg-expression-icon-visible
 ```
 
 > ⚠️ **Note for LLM agents:** Always inspect live DOM before hardcoding selectors. Desmos may update class names or structure. Prefer `aria-label` and role-based selectors for stability.
-
-### 8.5 Suggested Test Framework Stack
-
-| Layer                  | Recommended Tool                          |
-|------------------------|-------------------------------------------|
-| E2E Testing            | Playwright (preferred) or Cypress         |
-| Visual Regression      | Playwright Screenshots + pixelmatch       |
-| Unit / API Testing     | Jest + Desmos API (if applicable)         |
-| Accessibility Testing  | axe-core + Playwright                     |
-| CI Integration         | GitHub Actions / GitLab CI                |
 
 ---
 
