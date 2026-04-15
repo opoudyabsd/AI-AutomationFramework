@@ -170,21 +170,6 @@ test.describe('Expression Entry', () => {
       // Assert — button name changed to "Show Expression N" confirms the expression was hidden
       await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(/Show Expression/);
     });
-
-    // TC-E1-04-004 | Priority 3
-    test('should announce visibility state change to screen reader via keyboard shortcut', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
-
-      // Act
-      await calculatorPage.hideExpressionViaKeyboard();
-
-      // Assert — the toggle button accessible name changes from "Hide Expression N" to
-      // "Show Expression N" — this IS the screen-reader signal that the state changed.
-      // Desmos does not maintain a persistent aria-live announcement region, so the
-      // accessible name mutation on the button is the testable accessibility signal here.
-      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(/Show Expression/);
-    });
   });
 
   test.describe('Style menu', () => {
@@ -275,22 +260,32 @@ test.describe('Expression Entry', () => {
     });
 
     // TC-E1-07-003 | Priority 3
-    test('should display exact intercept coordinates when clicking near x-axis intercepts', async ({ calculatorPage }) => {
+    test('should display right intercept coordinates when clicking near x-axis intercept', async ({ calculatorPage }) => {
       // Arrange
       await calculatorPage.typeExpression(expressionEntryData.interceptExpression);
 
-      // Act & Assert — right intercept (2, 0)
+      // Act
       await calculatorPage.clickGraphAtGraphCoord(
         graphCoordinates.rightIntercept.graphX,
         graphCoordinates.rightIntercept.graphY,
       );
-      await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.poiCoordinates);
 
-      // Act & Assert — left intercept (-2, 0)
+      // Assert — right intercept (2, 0)
+      await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.poiCoordinates);
+    });
+
+    // TC-E1-07-004 | Priority 3
+    test('should display left intercept coordinates when clicking near x-axis intercept', async ({ calculatorPage }) => {
+      // Arrange
+      await calculatorPage.typeExpression(expressionEntryData.interceptExpression);
+
+      // Act
       await calculatorPage.clickGraphAtGraphCoord(
         graphCoordinates.leftIntercept.graphX,
         graphCoordinates.leftIntercept.graphY,
       );
+
+      // Assert — left intercept (−2, 0) using Unicode minus (U+2212) as rendered by Desmos
       await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.leftInterceptCoords);
     });
   });

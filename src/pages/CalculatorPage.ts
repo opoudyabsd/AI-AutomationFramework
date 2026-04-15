@@ -70,7 +70,7 @@ export class CalculatorPage {
     // consistently resolves to the leftmost locked point — for single-point tests
     // .first() is equivalent to the only element; for the two-intercept test it
     // resolves to the left intercept (-2, 0) while the right intercept (2, 0) is last.
-    this.traceCoordinates = page.getByRole('button', { name: 'Export point to expression list' }).first().locator('xpath=../..');
+    this.traceCoordinates = page.getByRole('button', { name: 'Export point to expression list' }).first().locator('..').locator('..');
     this.ariaLiveRegion = page.locator(SELECTORS.ARIA_LIVE_REGION).first();
   }
 
