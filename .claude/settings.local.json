@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C C:/Users/BohdanKoval/Desktop/Study/EPAM/AIStory show HEAD:.claude/playwright-TestScript-creation/SKILL.md)"
+      "Bash(git -C C:/Users/BohdanKoval/Desktop/Study/EPAM/AIStory show HEAD:.claude/playwright-TestScript-creation/SKILL.md)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx playwright:*)",
+      "Bash(ls \"C:\\\\Users\\\\BohdanKoval\\\\Desktop\\\\Study\\\\EPAM\\\\AIStory\\\\test-results\"\" 2>/dev/null | grep -E \"Trace)",
+      "Bash(trace)",
+      "Bash(curve)",
+      "Bash(intercept)",
+      "Bash(color \")",
+      "Bash(node -e \":*)",
+      "Bash(cd:*)"
     ]
   }
 }

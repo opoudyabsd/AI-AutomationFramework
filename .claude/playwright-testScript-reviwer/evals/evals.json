@@ -1,0 +1,50 @@
+{
+  "skill_name": "playwright-testScript-reviwer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review the expression-entry test suite and generate a quality report.",
+      "expected_output": "A report file is written to docs/reviewReport/runs/REVIEW-<date>-expression-entry.md. Only the file path and Summary table are shown in chat. INDEX.md is updated.",
+      "files": [
+        "src/tests/expression-entry.spec.ts",
+        "src/pages/CalculatorPage.ts",
+        "src/utils/fixtures/calculator.fixture.ts"
+      ],
+      "expectations": [
+        "A .md file is created under docs/reviewReport/runs/ — not pasted into chat",
+        "docs/reviewReport/INDEX.md contains a new row for this run",
+        "The Summary table in chat contains rows for all 11 categories (A through K)",
+        "Every finding includes a check ID (e.g. B4), the file path, a violation snippet, and a fix snippet",
+        "No finding is invented — every cited snippet exists verbatim in the reviewed file"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Check if my expression-entry tests actually cover their test cases.",
+      "expected_output": "Category K section of the report lists each TC ID found as a comment, confirms whether the matching .md exists, and flags any test case .md files in docs/testCases/ that have no corresponding test() block.",
+      "files": [
+        "src/tests/expression-entry.spec.ts",
+        "docs/testCases/smoke/expression-entry/TC-E1-01-001-type-quadratic-function-renders-parabola.md",
+        "docs/testCases/regression/expression-entry/"
+      ],
+      "expectations": [
+        "Each // TC-* comment in the spec is resolved to a docs/testCases/ file",
+        "Any TC-* comment with no matching file is flagged as K2 P1",
+        "Any .md file in docs/testCases/regression/expression-entry/ with no test() block is flagged as K6 P2",
+        "Canvas proxy assertions (not.toBeVisible on expressionError) are NOT flagged as K4 violations"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Scan all my Playwright tests for issues.",
+      "expected_output": "The report scope is 'all'. Every spec file under src/tests/ is reviewed. A single run report and an updated INDEX.md are written to disk.",
+      "files": [],
+      "expectations": [
+        "Report scope field reads 'all'",
+        "Files reviewed list includes every .spec.ts found under src/tests/",
+        "A single run report is written — not one per spec file",
+        "The summary table totals are the sum across all reviewed files"
+      ]
+    }
+  ]
+}

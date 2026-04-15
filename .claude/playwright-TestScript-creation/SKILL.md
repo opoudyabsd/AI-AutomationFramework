@@ -26,298 +26,233 @@ name: playwright-testScript-creation
 
 # Playwright Test Script Creation
 
-This skill reads structured test case `.md` files from `docs/testCases/`, uses
-Playwright MCP to navigate the live Desmos Graphing Calculator to validate
-selectors and interaction flows in real-time, then generates production-ready
-TypeScript files following the project's Page Object Model (POM) + fixture
-architecture. It groups test cases by feature area to produce one spec file,
-one Page Object class, and one fixture per logical UI component — keeping
-the codebase organised and avoiding duplication.
+Converts `docs/testCases/` markdown files into TypeScript using POM + fixture
+architecture. Validates every selector against the live Desmos calculator before
+writing code to avoid stale-selector bugs.
 
 ---
 
-## Workflow
+## Phase 1 — Research
 
-Follow these steps in order:
+1. Read `docs/projectContext.md`. It is the authoritative source for Desmos
+   selectors and constraints. Do this before writing any code.
 
-1. **Load reference context** — Read `docs/projectContext.md` to ground all
-   selector choices, input strategies, and assertion patterns in the actual
-   application before writing any code. This file is the authoritative source
-   for Desmos selectors, known challenges, and testing constraints.
-2. **Discover and group test cases** — Use Glob to list all `.md` files under
-   `docs/testCases/`. Organise by `[feature-folder]` (second-level directory,
-   e.g. `expression-entry`). Each feature folder maps to exactly one spec file,
-   one Page Object class, and one fixture file. Collect test cases from all
-   test-type subdirectories (`smoke/`, `regression/`, `e2e/`, `performance/`)
-   that share the same feature folder.
-3. **Read each target test case file** — Parse every relevant `.md` file and
-   extract: Test Case ID, Summary, Priority, Preconditions, Test Steps table
-   (action + expected result per row), and Notes for Automation (selector,
-   input method, assertion strategy, wait strategy).
-4. __Validate selectors against the live app__ — Use `browser_navigate` to open
-   `https://www.desmos.com/calculator`. For each unique CSS class or aria-label
-   referenced in test cases, use `browser_snapshot` to capture the accessibility
-   tree and confirm the selector is present. If a selector does not match the
-   live DOM, find the correct one from the snapshot and use it. Note corrections
-   as inline comments in the generated code.
-5. **Identify required Page Object methods** — From the Test Steps, extract the
-   distinct user-level actions (e.g. "type an expression", "click color icon",
-   "press Enter"). Map each to a POM method using verb-first naming
-   (`typeExpression`, `hideExpression`, `openStyleMenu`). Check if a Page Object
-   for this feature already exists at `src/pages/` — if so, read it first to
-   avoid duplicating or overwriting existing methods.
-6. **Create or update the Page Object class** — Write the POM file to
-   `src/pages/[PageName].ts` using the class template in the Output format
-   section. Group locators by UI region with comment headers. Methods must
-   represent user-level actions, not raw clicks. Never add assertions inside
-   the POM. Apply the selector priority order (see Output format).
-7. **Create or update the fixture** — Write or update
-   `src/utils/fixtures/[kebab-name].fixture.ts` to expose the Page Object via a
-   typed Playwright fixture. Read the existing fixture first if it exists — add
-   the new Page Object type rather than replacing the file.
-8. **Generate the test spec file** — Write `src/tests/[feature-name].spec.ts`.
-   Use one top-level `test.describe('[Feature Name]')`. Use `test.beforeEach()`
-   for navigation (call `goto()` on the fixture). Each test case becomes one
-   `test('should [verb] [what]', ...)` — derive the title from the TC Summary.
-   Arrange, Act, Assert pattern. Import `test` and `expect` from the fixture
-   file only — never from `@playwright/test` directly. Read the existing spec
-   file first if it exists and append within the correct `test.describe()`.
-9. __Verify complex interactions with MCP__ — For test cases involving MathQuill
-   input, keyboard shortcuts, canvas clicks, drag operations, or style menus,
-   replay the interaction live using `browser_type`, `browser_press_key`,
-   `browser_click`, or `browser_evaluate`. Confirm the expected DOM change
-   occurs and adjust generated code if the live run reveals a different approach
-   is needed.
-10. **Final file validation** — After writing all files, confirm:
+2. Glob `docs/testCases/**/*.md`. Group by feature folder (second path segment,
+   e.g. `expression-entry`). Each feature folder maps to one spec, one POM, one
+   fixture. Collect from all type subdirectories (`smoke/`, `regression/`, etc.).
 
-   - All files live under paths matching CLAUDE.md sections 2 and 3
-   - No `import` from `@playwright/test` directly in test spec files
-   - No `locator.fill()` on MathQuill fields — `keyboard.type()` only
-   - No canvas pixel assertions — DOM proxy signals only
-   - No `test.only()` or `page.pause()` in any committed file
-   - `goto()` always calls `waitForCalculatorLoad()` internally
+3. Read each target `.md` file. Extract: ID, Summary, Priority, Preconditions,
+   Test Steps (action + expected result), Notes for Automation.
+
+4. Read existing files for this feature before modifying — POM, fixture, spec,
+   `constants.ts`, `testData.ts`. Extending existing files prevents duplication.
 
 ---
 
-## Output format
+## Phase 2 — Verify selectors
 
-### Page Object class — `src/pages/[PageName].ts`
+5. Navigate to `https://www.desmos.com/calculator` via `browser_navigate`. Call
+   `browser_snapshot` to capture the full accessibility tree. Check the **DOM
+   quick reference** table below before searching — the most common stale
+   selectors are already resolved there.
 
+6. For every selector from test cases: confirm it exists in the snapshot. When a
+   selector is missing, find the live value and mark it:
+   `// corrected from test case: [original]`.
+
+7. Choose locators using this priority order (stop at first viable option):
+   1. `getByRole` / `getByLabel` / `getByText` / `getByPlaceholder` — semantic
+   2. `data-*` attribute — when present and stable
+   3. `.dcg-*` class scoped to a container — only when no semantic selector exists
+   4. Generic scoped CSS chain — last resort
+
+   Do not use XPath; it couples tests to internal DOM structure and breaks on
+   any markup refactor. Do not use flat overly-specific chains like
+   `div > div:nth-child(2)`.
+
+---
+
+## Phase 3 — Write code
+
+8. **Classify all test data first**, before writing any spec, to keep specs
+   free of literals:
+   - Shared across tests → `src/testData/constants.ts` (selectors, timeouts,
+     aria-labels, shortcuts)
+   - Test-specific inputs / expected values → `src/testData/testData.ts`
+     (expressions, coordinates, result strings)
+
+9. **Write or update the POM** at `src/pages/[PageName].ts`:
+   - All locators are `readonly` class properties set in the constructor.
+   - Method names describe user intent: `typeExpression()` not `clickMathField()`.
+   - `goto()` must call `waitForCalculatorLoad()` internally so callers need not
+     repeat the wait.
+   - Keep assertions out of the POM; they belong in specs only.
+
+10. **Write or update the fixture** at `src/utils/fixtures/[kebab].fixture.ts`.
+    Extend the `Fixtures` type — do not replace the file.
+
+11. **Write or update the spec** at `src/tests/[feature].spec.ts`:
+    - Import `test` and `expect` from the fixture only, not from `@playwright/test`
+      directly (the fixture re-exports `expect` and ensures correct context).
+    - One `test.describe()` per spec; `test.beforeEach()` for navigation.
+    - Test names: `'should <verb> <what>'`. Arrange / Act / Assert structure.
+    - Use Playwright's auto-retry matchers (`toBeVisible`, `toContainText`,
+      `toHaveCount`, etc.) instead of `expect(await locator.isVisible()).toBe(true)`.
+    - `waitForTimeout()` only for MathQuill's async render; import the constant.
+
+---
+
+## Phase 4 — Validate
+
+12. Replay complex interactions live using `browser_type`, `browser_press_key`, or
+    `browser_click` for MathQuill input, keyboard shortcuts, canvas clicks, and
+    style menus. Confirm the expected DOM change before committing the code.
+
+13. Before saving, verify:
+    - [ ] No direct `@playwright/test` imports in spec files
+    - [ ] No `locator.fill()` on MathQuill fields
+    - [ ] No canvas pixel assertions
+    - [ ] No `test.only()` or `page.pause()`
+    - [ ] No XPath selectors
+    - [ ] No inline data literals in specs — every value imported from `testData.ts`
+    - [ ] `goto()` calls `waitForCalculatorLoad()` internally
+    - [ ] Multi-element locators are scoped or filtered
+
+---
+
+## Output structure
+
+```
+src/
+  testData/
+    constants.ts          # selectors, timeouts, aria-labels, shortcuts
+    testData.ts           # expressions, expected values, graph coordinates
+  pages/[PageName].ts     # POM: readonly locators + user-action methods
+  tests/[feature].spec.ts # test.describe > test.beforeEach + test()
+  utils/fixtures/[feature].fixture.ts  # base.extend<Fixtures>({ … })
+```
+
+**POM constructor skeleton:**
 ```typescript
-import { Page, Locator } from '@playwright/test';
-
-export class [PageName]Page {
-  readonly page: Page;
-
-  // [UI Region — e.g. Expression List]
-  readonly [locatorName]: Locator;
-  readonly [locatorName]: Locator;
-
-  // [UI Region — e.g. Toolbar]
-  readonly [locatorName]: Locator;
-
-  constructor(page: Page) {
-    this.page = page;
-    // Selector priority: aria-label > role > .dcg-* class > generic CSS
-    this.[locatorName] = page.locator('[aria-label="..."]');
-    this.[locatorName] = page.locator('.dcg-...');
-  }
-
-  async goto() {
-    await this.page.goto('/');
-    await this.waitForCalculatorLoad();
-  }
-
-  private async waitForCalculatorLoad() {
-    await this.page.locator('.dcg-expressionlist').waitFor({ state: 'visible' });
-  }
-
-  // User-level actions — one method per distinct user intention
-  async [userActionMethod](arg?: string): Promise<void> {
-    // keyboard.type() for MathQuill; never locator.fill()
-    // no assertions inside methods
-  }
+constructor(page: Page) {
+  this.page = page;
+  // Semantic selectors first
+  this.addItemButton = page.getByRole('button', { name: ARIA.ADD_ITEM });
+  // .dcg-* only when no role/label is available; always scoped + filtered
+  this.expressionList  = page.locator(SELECTORS.EXPRESSION_LIST);
+  this.expressionItems = this.expressionList.locator(SELECTORS.EXPRESSION_ITEM);
+  this.expressionItem  = this.expressionItems.first();
+  this.mathInputField  = page.locator(SELECTORS.MATH_INPUT).first();
+  // Errors render as role="note" — more stable than .dcg-error (absent when no error)
+  this.expressionError = this.expressionItem.getByRole('note');
 }
 ```
 
-**Selector priority order (CLAUDE.md §5 — strictly enforced):**
-
-1. `[aria-label="..."]` — preferred
-2. `page.getByRole('button', { name: '...' })` — for interactive elements
-3. `.dcg-[class]` — Desmos-specific CSS classes
-4. Generic CSS — only when no stable alternative exists
-5. XPath — never
-
-### Fixture file — `src/utils/fixtures/[name].fixture.ts`
-
+**Fixture skeleton:**
 ```typescript
-import { test as base } from '@playwright/test';
-import { [PageName]Page } from '../../pages/[PageName]';
-
-type Fixtures = {
-  [camelCaseName]: [PageName]Page;
-};
-
-export const test = base.extend<Fixtures>({
-  [camelCaseName]: async ({ page }, use) => {
-    const [camelCaseName] = new [PageName]Page(page);
-    await use([camelCaseName]);
+export const test = base.extend<{ calculatorPage: CalculatorPage }>({
+  calculatorPage: async ({ page }, use) => {
+    await use(new CalculatorPage(page));
   },
 });
-
 export { expect } from '@playwright/test';
 ```
 
-### Test spec file — `src/tests/[feature-name].spec.ts`
-
+**Spec skeleton:**
 ```typescript
-import { test, expect } from '../utils/fixtures/[name].fixture';
+import { test, expect } from '../utils/fixtures/calculator.fixture';
+import { expressionEntryData, graphCoordinates } from '../testData/testData';
 
-test.describe('[Feature Name]', () => {
-  test.beforeEach(async ({ [camelCaseName] }) => {
-    await [camelCaseName].goto();
-  });
+test.describe('Feature Name', () => {
+  test.beforeEach(async ({ calculatorPage }) => { await calculatorPage.goto(); });
 
-  // TC-[ID] | Priority [N]
-  test('should [verb] [what]', async ({ [camelCaseName] }) => {
-    // Arrange — any setup not covered by beforeEach
-
-    // Act
-    await [camelCaseName].[actionMethod]();
-
-    // Assert — prefer locator-based matchers; never canvas pixel assertions
-    await expect([camelCaseName].[locator]).toBeVisible();
+  // TC-E1-01-001 | Priority 2
+  test('should <verb> <what>', async ({ calculatorPage }) => {
+    // Arrange / Act / Assert — all data from testData imports
+    await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+    await expect(calculatorPage.expressionItem).toBeVisible();
+    await expect(calculatorPage.expressionError).not.toBeVisible();
   });
 });
-```
-
-### MathQuill input — always use this pattern (never `locator.fill()`)
-
-```typescript
-await expressionField.click();
-await page.keyboard.type('y=x^2');
-await page.waitForTimeout(300); // MathQuill needs time to process
-```
-
-### Canvas assertion — DOM proxy signals only (never pixel data)
-
-```typescript
-// No error after valid expression
-await expect(page.locator('.dcg-expressionitem .dcg-error')).not.toBeVisible();
-
-// Slider appears after undefined variable in expression
-await expect(page.locator('.dcg-slider-play-btn')).toBeVisible();
-
-// POI tooltip contains expected coordinate text
-await expect(page.locator('.dcg-trace-coordinates')).toContainText('(2, 0)');
-
-// Visibility state changed on expression icon
-await expect(expressionIcon).toHaveClass(/hidden/);
 ```
 
 ---
 
-## Feature → file mapping reference
+## Feature → file mapping
 
-| Feature folder (`docs/testCases/`) | Page Object | Fixture file | Spec file |
+| Feature folder | Page Object | Fixture | Spec |
 |---|---|---|---|
 | `expression-entry` | `CalculatorPage.ts` | `calculator.fixture.ts` | `expression-entry.spec.ts` |
 | `graph-settings` | `GraphSettingsPage.ts` | `graph-settings.fixture.ts` | `graph-settings.spec.ts` |
 | `sliders-animations` | `SlidersPage.ts` | `sliders.fixture.ts` | `sliders-animations.spec.ts` |
 | `save-load-share` | `SharePage.ts` | `share.fixture.ts` | `save-load-share.spec.ts` |
 
-When a new feature folder appears that is not listed here, derive the Page
-Object name as `[PascalCaseFeature]Page`, fixture as `[kebab-case].fixture.ts`,
-and spec as `[kebab-case].spec.ts`.
+New feature folders: derive `[PascalCase]Page.ts`, `[kebab].fixture.ts`, `[kebab].spec.ts`.
 
 ---
 
-## Examples
+## Desmos DOM quick reference
 
-**Example 1 — single test case by ID:**
+Live-verified corrections — these override `projectContext.md`. Load
+`.claude/playwright-TestScript-creation/dom-gotchas.md` for full details and
+code examples.
 
-Input: *"Generate a Playwright test script for TC-E1-01-001"*
+| Area | Documented assumption | Live DOM truth |
+|---|---|---|
+| Color picker | `.dcg-color-option` | `.dcg-color-tile` (`role="option"`, labels "red"/"blue"/…) |
+| Expression icon | `.dcg-expression-icon` | `.dcg-expression-icon-container` |
+| Expression error | `.dcg-error` (absent when no error) | `getByRole('note')` |
+| Trace coordinates | `.dcg-trace-coordinates` (removed) | Export-button anchor: `getByRole('button', { name: 'Export point…' }).first().locator('xpath=../..') ` |
+| Style menu | `.dcg-options-menu` (never existed) | Button name `/Options for Expression/` when open |
+| Graph canvas | `.dcg-graph-outer` (2 elements) | `.dcg-graph-outer[role="img"]` |
+| Canvas click | `locator.click()` (blocked by overlay) | `page.mouse.move(x, y, { steps: 5 })` → `page.mouse.click(x, y)` |
+| MathQuill select-all | `Ctrl+A` (does nothing) | `End` → `Shift+Home` |
 
-Expected result:
-
-- Reads `docs/testCases/smoke/expression-entry/TC-E1-01-001-*.md`
-- Navigates live app, confirms `.dcg-mq-editable-field` exists in DOM
-- Creates `src/pages/CalculatorPage.ts` with `expressionField` locator and
-   `typeExpression(text: string)` method using `page.keyboard.type()`
-- Creates `src/utils/fixtures/calculator.fixture.ts` exposing `calculatorPage`
-- Creates `src/tests/expression-entry.spec.ts` with:
-   `test('should render a parabola when y=x^2 is typed', ...)`
-- Test asserts `.dcg-expressionitem .dcg-error` is NOT visible; no pixel assert
-
-**Example 2 — all test cases for a feature:**
-
-Input: *"Create Playwright tests for all expression-entry test cases"*
-
-Expected result:
-
-- Globs all `.md` files from `smoke/expression-entry/` and
-   `regression/expression-entry/` — finds 21 test cases
-- Single MCP pass validates all unique selectors in live DOM
-- Produces one `CalculatorPage.ts` with all locators and methods
-- Produces one `calculator.fixture.ts`
-- Produces one `expression-entry.spec.ts` with 21 `test()` blocks inside
-   `test.describe('Expression Entry')`, grouped by sub-feature with nested
-   `test.describe()` blocks (entry, edit, add line, visibility, style, trace)
-
-**Example 3 — implicit feature reference:**
-
-Input: *"Automate the hide and show expression tests"*
-
-Expected result:
-
-- Identifies TC-E1-04-001 through TC-E1-04-004 in
-   `docs/testCases/regression/expression-entry/`
-- Reads existing `CalculatorPage.ts`, adds `hideExpression()`,
-   `showExpression()`, `toggleVisibilityViaKeyboard()` methods
-- Appends 4 tests to `expression-entry.spec.ts` inside a nested
-   `test.describe('Visibility toggle')`
-- Verifies `.dcg-expression-icon` selector in live browser before writing
+**Trace tooltip rules (summary):**
+- Tooltips only appear at POIs (intercepts, vertex, min/max) — not arbitrary curve points.
+- Multiple POIs lock simultaneously; Escape does not dismiss them.
+- DOM orders locked labels by ascending x-coordinate; use `.first()` consistently.
+- Coordinate text omits parentheses (aria-only); assert numeric part only: `'2, 0'`.
+- Negative coordinates use Unicode minus `−` (U+2212), not ASCII `-`:
+  `leftInterceptCoords: '\u22122, 0'`.
 
 ---
 
 ## Edge cases
 
-- **Test case file not found**: List available feature folders under
-   `docs/testCases/` and ask the user to confirm. Never invent test cases.
-- __Selector missing from live DOM__: Use `browser_snapshot` to find the correct
-   selector. Use the live-verified value and add comment
-   `// corrected from test case: [original selector]`.
-- **Page Object already exists**: Read it first. Add new locators and methods
-   without renaming or removing existing ones.
-- **Fixture already exists**: Read it first. Extend the `Fixtures` type with
-   the new entry rather than overwriting the file.
-- **Spec file already exists**: Read it first. Append within the matching
-   `test.describe()`. Never delete existing tests.
-- **MathQuill field targeted**: Always `keyboard.type()`. Add
-   `page.waitForTimeout(300)` after typing. Never `locator.fill()`.
-- **Canvas interaction required**: Assert via DOM proxy signals only. Document
-   what the canvas should show in a comment, then verify via the DOM equivalent.
-- **Test requires Desmos account login**: Skip and inform the user. Auth-
-   dependent tests are out of scope unless explicitly requested.
-- **testData.json present next to a test case**: Read it and write the values
-   to `src/testData/testData.ts` as named exports for use in the spec.
-- **No MCP browser connection available**: Fall back to selectors from
-   `docs/projectContext.md`. Mark each unverified selector:
-   `// selector unverified — confirm against live DOM before committing`.
-- **Multiple feature folders requested**: Process one feature folder at a time
-   in alphabetical order. Complete all three files per feature before moving on.
+- **Test case file not found** — list available feature folders and ask the user.
+- **Selector missing from live DOM** — check the table above, then `browser_snapshot`.
+  If still unresolved, mark `// selector unverified — confirm against live DOM`.
+- **Selector matches multiple elements** — scope to a container and use `.filter()`.
+  Use `.first()` only when DOM ordering is deterministic by design (e.g. POI labels
+  sorted by x-coordinate).
+- **Existing POM / fixture / spec** — read before writing; extend, do not replace.
+- **Existing `constants.ts` / `testData.ts`** — read before writing; add exports,
+  do not overwrite existing ones.
+- **MathQuill input** — `keyboard.type()` only; `locator.fill()` silently fails
+  because MathQuill intercepts the input event before the native field receives it.
+- **Canvas assertions** — DOM proxy signals only (error absence, slider, trace label).
+  POI coordinates must be numeric-only strings with Unicode minus for negatives.
+- **Multiple POIs in one test** — click in ascending x-order; use `.first()` on the
+  Export button; Escape does not clear locked POIs (see `dom-gotchas.md`).
+- **No MCP connection** — fall back to `docs/projectContext.md` selectors; mark each
+  `// selector unverified — confirm against live DOM before committing`.
+- **Test requires Desmos account** — skip and notify the user; out of scope.
+- **`testData.json` next to a test case** — read it and export its values to `testData.ts`.
+- **Style panel stays open after color selection** — assert `.dcg-expression-icon-container`
+  or `styleMenu` instead of `expressionToggleButton` right after a color click.
 
 ---
 
 ## Reference files
 
-Load only when relevant to the current task:
-
 | File | Load when |
-|------|-----------|
-| `docs/projectContext.md` | Always — load at Step 1 before writing any code |
-| `docs/testCases/[type]/[feature]/[TC-ID].md` | Load the specific test case files being implemented |
+|---|---|
+| `docs/projectContext.md` | Always — load at Phase 1 before writing any code |
+| `.claude/playwright-TestScript-creation/dom-gotchas.md` | Any selector or interaction fails or behaves unexpectedly |
+| `docs/testCases/[type]/[feature]/[TC-ID].md` | Load the specific test cases being implemented |
 | `src/pages/[PageName].ts` | Always before creating or modifying a Page Object |
 | `src/utils/fixtures/[name].fixture.ts` | Always before creating or modifying a fixture |
 | `src/tests/[feature].spec.ts` | Always before creating or modifying a spec file |
-| `src/testData/testData.ts` | When test cases reference external data values from testData.json |
+| `src/testData/constants.ts` | Always before writing any selector, timeout, or aria-label |
+| `src/testData/testData.ts` | Always before writing any input value or expected assertion value |
