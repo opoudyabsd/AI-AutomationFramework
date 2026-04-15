@@ -38,14 +38,16 @@ writing code to avoid stale-selector bugs.
    selectors and constraints. Do this before writing any code.
 
 2. Glob `docs/testCases/**/*.md`. Group by feature folder (second path segment,
-   e.g. `expression-entry`). Each feature folder maps to one spec, one POM, one
-   fixture. Collect from all type subdirectories (`smoke/`, `regression/`, etc.).
+   e.g. `expression-entry`). The first path segment is the test type
+   (`smoke`, `regression`, `e2e`, `performance`) — use it to determine which
+   `src/tests/{type}/` subdirectory the spec belongs in.
 
 3. Read each target `.md` file. Extract: ID, Summary, Priority, Preconditions,
    Test Steps (action + expected result), Notes for Automation.
 
 4. Read existing files for this feature before modifying — POM, fixture, spec,
-   `constants.ts`, `testData.ts`. Extending existing files prevents duplication.
+   `constants.ts`, `testData.ts`, `cssConstant.ts`. Extending existing files
+   prevents duplication.
 
 ---
 
@@ -79,7 +81,10 @@ writing code to avoid stale-selector bugs.
    - Shared across tests → `src/testData/constants.ts` (selectors, timeouts,
      aria-labels, shortcuts)
    - Test-specific inputs / expected values → `src/testData/testData.ts`
-     (expressions, coordinates, result strings)
+     (expressions, coordinates, result strings, regex patterns)
+   - HTML / ARIA attribute names and boolean string values →
+     `src/testData/cssConstant.ts` (e.g. `'aria-label'`, `'aria-checked'`,
+     `'true'` / `'false'`)
 
 9. **Write or update the POM** at `src/pages/[PageName].ts`:
    - All locators are `readonly` class properties set in the constructor.
@@ -91,9 +96,22 @@ writing code to avoid stale-selector bugs.
 10. **Write or update the fixture** at `src/utils/fixtures/[kebab].fixture.ts`.
     Extend the `Fixtures` type — do not replace the file.
 
-11. **Write or update the spec** at `src/tests/[feature].spec.ts`:
-    - Import `test` and `expect` from the fixture only, not from `@playwright/test`
-      directly (the fixture re-exports `expect` and ensures correct context).
+11. **Write or update the spec** at `src/tests/{type}/{feature}.spec.ts`,
+    where `{type}` is `smoke`, `regression`, `e2e`, or `performance` — matching
+    the `docs/testCases/` source subfolder for those test cases.
+
+    - **One spec file per type per feature.** Never mix smoke and regression (or
+      any other types) inside the same file. If a feature has test cases across
+      multiple types, create one file per type.
+    - Import `test` and `expect` from the fixture only, never from
+      `@playwright/test` directly.
+    - Apply **both a type tag and a feature tag** on `test.describe()`:
+      ```typescript
+      test.describe('Feature Name', { tag: ['@{type}', '@{feature}'] }, () => { … })
+      ```
+      Type tag values: `@smoke` | `@regression` | `@e2e` | `@performance`.
+      Feature tag values: `@expression-entry` | `@graph-settings` |
+      `@sliders-animations` | `@save-load-share` (kebab-case, prefixed with `@`).
     - One `test.describe()` per spec; `test.beforeEach()` for navigation.
     - Test names: `'should <verb> <what>'`. Arrange / Act / Assert structure.
     - Use Playwright's auto-retry matchers (`toBeVisible`, `toContainText`,
@@ -115,8 +133,12 @@ writing code to avoid stale-selector bugs.
     - [ ] No `test.only()` or `page.pause()`
     - [ ] No XPath selectors
     - [ ] No inline data literals in specs — every value imported from `testData.ts`
+          or `cssConstant.ts`
     - [ ] `goto()` calls `waitForCalculatorLoad()` internally
     - [ ] Multi-element locators are scoped or filtered
+    - [ ] Spec file is in the correct `src/tests/{type}/` subdirectory
+    - [ ] `test.describe()` carries both `@{type}` tag and `@{feature}` tag
+    - [ ] No mixing of test types inside a single spec file
 
 ---
 
@@ -125,14 +147,40 @@ writing code to avoid stale-selector bugs.
 ```
 src/
   testData/
-    constants.ts          # selectors, timeouts, aria-labels, shortcuts
-    testData.ts           # expressions, expected values, graph coordinates
-  pages/[PageName].ts     # POM: readonly locators + user-action methods
-  tests/[feature].spec.ts # test.describe > test.beforeEach + test()
-  utils/fixtures/[feature].fixture.ts  # base.extend<Fixtures>({ … })
+    constants.ts            # selectors, timeouts, aria-labels, shortcuts
+    testData.ts             # expressions, expected values, graph coordinates, patterns
+    cssConstant.ts          # ARIA attribute names and boolean string values
+  pages/
+    [PageName].ts           # POM: readonly locators + user-action methods
+  tests/
+    smoke/
+      [feature].spec.ts     # @smoke + @[feature] — critical path only
+    regression/
+      [feature].spec.ts     # @regression + @[feature] — full feature coverage
+    e2e/
+      [feature].spec.ts     # @e2e + @[feature] — cross-feature workflows
+    performance/
+      [feature].spec.ts     # @performance + @[feature] — load / timing
+  utils/
+    fixtures/
+      [feature].fixture.ts  # base.extend<Fixtures>({ … })
 ```
 
-**POM constructor skeleton:**
+Playwright's `testDir: './src/tests'` picks up all subdirectories automatically.
+Use CLI flags or tags to scope runs:
+
+```bash
+npx playwright test src/tests/smoke/          # all smoke tests
+npx playwright test src/tests/regression/     # all regression tests
+npx playwright test --grep @graph-settings    # all types for one feature
+npx playwright test --grep "@smoke.*@expression-entry"  # smoke for one feature
+```
+
+---
+
+## Skeletons
+
+**POM constructor:**
 ```typescript
 constructor(page: Page) {
   this.page = page;
@@ -148,7 +196,7 @@ constructor(page: Page) {
 }
 ```
 
-**Fixture skeleton:**
+**Fixture:**
 ```typescript
 export const test = base.extend<{ calculatorPage: CalculatorPage }>({
   calculatorPage: async ({ page }, use) => {
@@ -158,20 +206,41 @@ export const test = base.extend<{ calculatorPage: CalculatorPage }>({
 export { expect } from '@playwright/test';
 ```
 
-**Spec skeleton:**
+**Spec — smoke example (`src/tests/smoke/expression-entry.spec.ts`):**
 ```typescript
-import { test, expect } from '../utils/fixtures/calculator.fixture';
-import { expressionEntryData, graphCoordinates } from '../testData/testData';
+import { test, expect } from '../../utils/fixtures/calculator.fixture';
+import { expressionEntryData } from '../../testData/testData';
 
-test.describe('Feature Name', () => {
+test.describe('Expression Entry', { tag: ['@smoke', '@expression-entry'] }, () => {
   test.beforeEach(async ({ calculatorPage }) => { await calculatorPage.goto(); });
 
-  // TC-E1-01-001 | Priority 2
-  test('should <verb> <what>', async ({ calculatorPage }) => {
-    // Arrange / Act / Assert — all data from testData imports
+  // TC-E1-01-001 | Priority 5
+  test('should render a parabola when a quadratic function is typed', async ({ calculatorPage }) => {
+    // Act
     await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+    // Assert — absence of error is the proxy for successful canvas render
     await expect(calculatorPage.expressionItem).toBeVisible();
     await expect(calculatorPage.expressionError).not.toBeVisible();
+  });
+});
+```
+
+**Spec — regression example (`src/tests/regression/graph-settings.spec.ts`):**
+```typescript
+import { test, expect } from '../../utils/fixtures/graph-settings.fixture';
+import { graphSettingsData } from '../../testData/testData';
+import { ATTRS, ATTR_VALUES } from '../../testData/cssConstant';
+
+test.describe('Graph Settings', { tag: ['@regression', '@graph-settings'] }, () => {
+  test.beforeEach(async ({ graphSettingsPage }) => { await graphSettingsPage.goto(); });
+
+  // TC-E2-01-002 | Priority 3
+  test('should default to Radians as the selected angle unit', async ({ graphSettingsPage }) => {
+    // Act
+    await graphSettingsPage.openSettings();
+    // Assert
+    await expect(graphSettingsPage.radiansOption).toHaveAttribute(ATTRS.ARIA_CHECKED, ATTR_VALUES.TRUE);
+    await expect(graphSettingsPage.degreesOption).toHaveAttribute(ATTRS.ARIA_CHECKED, ATTR_VALUES.FALSE);
   });
 });
 ```
@@ -180,21 +249,29 @@ test.describe('Feature Name', () => {
 
 ## Feature → file mapping
 
-| Feature folder | Page Object | Fixture | Spec |
-|---|---|---|---|
-| `expression-entry` | `CalculatorPage.ts` | `calculator.fixture.ts` | `expression-entry.spec.ts` |
-| `graph-settings` | `GraphSettingsPage.ts` | `graph-settings.fixture.ts` | `graph-settings.spec.ts` |
-| `sliders-animations` | `SlidersPage.ts` | `sliders.fixture.ts` | `sliders-animations.spec.ts` |
-| `save-load-share` | `SharePage.ts` | `share.fixture.ts` | `save-load-share.spec.ts` |
+POM and fixture are shared across all test types for a given feature.
+Spec files are split per type into `src/tests/{type}/`.
 
-New feature folders: derive `[PascalCase]Page.ts`, `[kebab].fixture.ts`, `[kebab].spec.ts`.
+| Feature | Page Object | Fixture | Spec files |
+|---|---|---|---|
+| `expression-entry` | `CalculatorPage.ts` | `calculator.fixture.ts` | `smoke/expression-entry.spec.ts`<br>`regression/expression-entry.spec.ts` |
+| `graph-settings` | `GraphSettingsPage.ts` | `graph-settings.fixture.ts` | `smoke/graph-settings.spec.ts`<br>`regression/graph-settings.spec.ts`<br>`e2e/graph-settings.spec.ts` |
+| `sliders-animations` | `SlidersPage.ts` | `sliders.fixture.ts` | `smoke/sliders-animations.spec.ts`<br>`regression/sliders-animations.spec.ts` |
+| `save-load-share` | `SharePage.ts` | `share.fixture.ts` | `smoke/save-load-share.spec.ts`<br>`regression/save-load-share.spec.ts` |
+
+New feature folders: derive `[PascalCase]Page.ts`, `[kebab].fixture.ts`, and one
+`[kebab].spec.ts` per required test type.
+
+**Import path note:** specs inside `src/tests/{type}/` are one level deeper than
+before. Fixture imports must use `../../utils/fixtures/` (two levels up) and data
+imports must use `../../testData/` (two levels up).
 
 ---
 
 ## Desmos DOM quick reference
 
 Live-verified corrections — these override `projectContext.md`. Load
-`.claude/playwright-TestScript-creation/dom-gotchas.md` for full details and
+`.claude/playwright-testScript-creation/dom-gotchas.md` for full details and
 code examples.
 
 | Area | Documented assumption | Live DOM truth |
@@ -202,11 +279,14 @@ code examples.
 | Color picker | `.dcg-color-option` | `.dcg-color-tile` (`role="option"`, labels "red"/"blue"/…) |
 | Expression icon | `.dcg-expression-icon` | `.dcg-expression-icon-container` |
 | Expression error | `.dcg-error` (absent when no error) | `getByRole('note')` |
-| Trace coordinates | `.dcg-trace-coordinates` (removed) | Export-button anchor: `getByRole('button', { name: 'Export point…' }).first().locator('xpath=../..') ` |
+| Trace coordinates | `.dcg-trace-coordinates` (removed) | Export-button anchor: `getByRole('button', { name: 'Export point…' }).first().locator('..').locator('..')` |
 | Style menu | `.dcg-options-menu` (never existed) | Button name `/Options for Expression/` when open |
 | Graph canvas | `.dcg-graph-outer` (2 elements) | `.dcg-graph-outer[role="img"]` |
 | Canvas click | `locator.click()` (blocked by overlay) | `page.mouse.move(x, y, { steps: 5 })` → `page.mouse.click(x, y)` |
 | MathQuill select-all | `Ctrl+A` (does nothing) | `End` → `Shift+Home` |
+| Reset view button | aria-label `"Reset to Default View"` (wrong) | aria-label `"Default Viewport"` — only in DOM after a zoom action |
+| Settings panel | no stable class | `getByRole('region', { name: ARIA.GRAPH_SETTINGS, exact: true })` — `exact: true` required, toolbar region shares partial name |
+| Axis tick numbers | DOM text nodes | Canvas-only — no DOM text. Use `graphCanvas.getAttribute('aria-label')` as viewport proxy |
 
 **Trace tooltip rules (summary):**
 - Tooltips only appear at POIs (intercepts, vertex, min/max) — not arbitrary curve points.
@@ -227,8 +307,14 @@ code examples.
   Use `.first()` only when DOM ordering is deterministic by design (e.g. POI labels
   sorted by x-coordinate).
 - **Existing POM / fixture / spec** — read before writing; extend, do not replace.
-- **Existing `constants.ts` / `testData.ts`** — read before writing; add exports,
-  do not overwrite existing ones.
+- **Existing `constants.ts` / `testData.ts` / `cssConstant.ts`** — read before
+  writing; add exports, do not overwrite existing ones.
+- **Mixed-type test case set for one feature** — create one spec file per type in
+  the matching `src/tests/{type}/` folder. Never merge smoke + regression or
+  regression + e2e into a single file.
+- **Migrating an old flat spec** — if a spec exists at `src/tests/[feature].spec.ts`,
+  classify each test by its source `docs/testCases/{type}/` folder and move it
+  to `src/tests/{type}/{feature}.spec.ts`. Delete the old flat file after migration.
 - **MathQuill input** — `keyboard.type()` only; `locator.fill()` silently fails
   because MathQuill intercepts the input event before the native field receives it.
 - **Canvas assertions** — DOM proxy signals only (error absence, slider, trace label).
@@ -249,10 +335,11 @@ code examples.
 | File | Load when |
 |---|---|
 | `docs/projectContext.md` | Always — load at Phase 1 before writing any code |
-| `.claude/playwright-TestScript-creation/dom-gotchas.md` | Any selector or interaction fails or behaves unexpectedly |
-| `docs/testCases/[type]/[feature]/[TC-ID].md` | Load the specific test cases being implemented |
+| `.claude/playwright-testScript-creation/dom-gotchas.md` | Any selector or interaction fails or behaves unexpectedly |
+| `docs/testCases/{type}/{feature}/[TC-ID].md` | Load the specific test cases being implemented |
 | `src/pages/[PageName].ts` | Always before creating or modifying a Page Object |
 | `src/utils/fixtures/[name].fixture.ts` | Always before creating or modifying a fixture |
-| `src/tests/[feature].spec.ts` | Always before creating or modifying a spec file |
+| `src/tests/{type}/{feature}.spec.ts` | Always before creating or modifying a spec file |
 | `src/testData/constants.ts` | Always before writing any selector, timeout, or aria-label |
 | `src/testData/testData.ts` | Always before writing any input value or expected assertion value |
+| `src/testData/cssConstant.ts` | Always before writing any `toHaveAttribute()` call |

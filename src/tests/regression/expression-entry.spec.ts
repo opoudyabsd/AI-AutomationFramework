@@ -1,7 +1,7 @@
-import { test, expect } from '../utils/fixtures/calculator.fixture';
-import { expressionEntryData, graphCoordinates } from '../testData/testData';
+import { test, expect } from '../../utils/fixtures/calculator.fixture';
+import { expressionEntryData, graphCoordinates } from '../../testData/testData';
 
-test.describe('Expression Entry', () => {
+test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] }, () => {
   test.beforeEach(async ({ calculatorPage }) => {
     await calculatorPage.goto();
   });

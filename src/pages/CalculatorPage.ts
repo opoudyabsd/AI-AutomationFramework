@@ -23,6 +23,7 @@ export class CalculatorPage {
   // Toolbar
   readonly zoomInButton: Locator;
   readonly zoomOutButton: Locator;
+  // resetViewButton: only present in the DOM after at least one zoom action (aria-label "Default Viewport").
   readonly resetViewButton: Locator;
   readonly addItemButton: Locator;
 

@@ -57,7 +57,7 @@ Parse the user's input to determine which files to review:
 
 | User input | Files to read |
 |---|---|
-| Specific file path (e.g. `src/tests/expression-entry.spec.ts`) | That file only |
+| Specific file path (e.g. `src/tests/testType/expression-entry.spec.ts`) | That file only |
 | Feature folder name (e.g. `expression-entry`) | All `*.spec.ts` under `src/tests/` whose name matches |
 | `all` or no scope specified | Every `*.spec.ts` under `src/tests/` |
 

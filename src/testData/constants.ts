@@ -25,7 +25,10 @@ export const SELECTORS = {
 export const ARIA = {
   ZOOM_IN: 'Zoom In',
   ZOOM_OUT: 'Zoom Out',
-  RESET_VIEW: 'Reset to Default View',
+  // Live DOM: button aria-label is "Default Viewport", not "Reset to Default View".
+  // The button only appears in the DOM AFTER at least one zoom action has been performed.
+  RESET_VIEW: 'Default Viewport',
+  GRAPH_SETTINGS: 'Graph Settings',
   ADD_ITEM: 'Add Item',
   OPEN_KEYPAD: 'Open Keypad',
   SHARE_GRAPH: 'Share Graph',

@@ -12,6 +12,17 @@ export const expressionEntryData = {
   leftInterceptCoords: '\u22122, 0',  // U+2212 Unicode minus — Desmos renders negatives with − not -
 } as const;
 
+export const graphSettingsData = {
+  // The aria-label on .dcg-graph-outer[role="img"] is the only DOM representation of the
+  // current axis range — axis tick numbers are canvas-rendered with no DOM text nodes.
+  // Default view reads: "graph paper. X axis visible from negative 10 to 10. Y axis visible from ..."
+  defaultViewportPattern: /negative 10 to 10/,
+
+  // Minimum clicks of Zoom In or Zoom Out needed to move the viewport outside the default
+  // [-10, 10] range and cause the "Default Viewport" reset button to appear in the DOM.
+  zoomStepsToLeaveDefault: 3,
+} as const;
+
 export const graphCoordinates = {
   // Graph-unit coordinates for the default Desmos view (x ∈ [-10,10], y ∈ [-10,10]).
   // Converted to canvas pixels at runtime using canvas bounding box —
