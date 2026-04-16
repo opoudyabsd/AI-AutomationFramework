@@ -6,7 +6,7 @@
       "prompt": "Review the expression-entry test suite and generate a quality report.",
       "expected_output": "A report file is written to docs/reviewReport/runs/REVIEW-<date>-expression-entry.md. Only the file path and Summary table are shown in chat. INDEX.md is updated.",
       "files": [
-        "src/tests/expression-entry.spec.ts",
+        "src/tests/regression/expression-entry.spec.ts",
         "src/pages/CalculatorPage.ts",
         "src/utils/fixtures/calculator.fixture.ts"
       ],
@@ -23,7 +23,7 @@
       "prompt": "Check if my expression-entry tests actually cover their test cases.",
       "expected_output": "Category K section of the report lists each TC ID found as a comment, confirms whether the matching .md exists, and flags any test case .md files in docs/testCases/ that have no corresponding test() block.",
       "files": [
-        "src/tests/expression-entry.spec.ts",
+        "src/tests/regression/expression-entry.spec.ts",
         "docs/testCases/smoke/expression-entry/TC-E1-01-001-type-quadratic-function-renders-parabola.md",
         "docs/testCases/regression/expression-entry/"
       ],

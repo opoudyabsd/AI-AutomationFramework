@@ -28,7 +28,7 @@ npx playwright test --headed
 npx playwright test --ui
 
 # Single spec file
-npx playwright test src/tests/expression-input.spec.ts
+npx playwright test src/tests/regression/expression-entry.spec.ts
 
 # Single test by name
 npx playwright test -g "should render a parabola"
@@ -48,13 +48,22 @@ npx playwright show-report
 ```
 src/
   testData/
-    constants.ts       # Static variables for test files and POMs
-    testData.ts        # Test-scoped data values
+    constants.ts       # Selectors, ARIA labels, timeouts, keyboard shortcuts
+    testData.ts        # Test-scoped input values and expected results
+    cssConstant.ts     # CSS attribute names and values (aria-label, aria-checked, etc.)
   pages/               # Page Object Model classes (.ts)
-  tests/               # All .spec.ts test files (one file per feature area)
+  testData/
+    apiConfig.ts       # Harness-level config for API tests (API version, container ID, sizes)
+  tests/               # All .spec.ts test files, organised by test type:
+    smoke/             # First critical happy-path test per feature
+    regression/        # All other functional tests
+    e2e/               # Multi-feature cross-cutting flows
+    performance/       # (reserved) speed / throughput tests
+    api/               # Desmos JavaScript Embed API contract tests
+      {feature}/       # one subfolder per API feature area (e.g. calculator-core)
   utils/
     fixtures/          # Playwright custom fixtures
-    helpers/           # Pure utility functions (no Playwright imports if avoidable)
+    helpers/           # (reserved) Pure utility functions — no Playwright imports
 docs/
   userstory/           # User story .md files per feature
   testCases/           # One .md file per test case, organised as:
@@ -62,6 +71,9 @@ docs/
       {feature}/
         testCase.md
         testData.json  # (optional) external data for that test case
+  APITestCases/        # API-specific test case specs, mirroring src/tests/api/ structure
+    {feature}/
+      TC-API-*.md
   projectContext.md    # Desmos selectors, features, known challenges — READ-ONLY
 playwright.config.ts
 .claude/
@@ -78,9 +90,10 @@ playwright.config.ts
 
 ## 4. File Naming Conventions
 
-| Type        | Location                  | Convention              | Example                    |
-|-------------|---------------------------|-------------------------|----------------------------|
-| Test spec   | `src/tests/`              | `kebab-case.spec.ts`    | `expression-input.spec.ts` |
+| Type        | Location                                        | Convention              | Example                                           |
+|-------------|-------------------------------------------------|-------------------------|---------------------------------------------------|
+| Test spec (UI)  | `src/tests/{smoke\|regression\|e2e\|performance}/` | `kebab-case.spec.ts` | `src/tests/regression/expression-entry.spec.ts`  |
+| Test spec (API) | `src/tests/api/{feature}/`                         | `kebab-case.spec.ts` | `src/tests/api/calculator-core/calculator-core.spec.ts` |
 | Page Object | `src/pages/`              | `PascalCase.ts`         | `CalculatorPage.ts`        |
 | Fixture     | `src/utils/fixtures/`     | `kebab-case.fixture.ts` | `calculator.fixture.ts`    |
 | Helper      | `src/utils/helpers/`      | `camelCase.ts`          | `mathInput.ts`             |
@@ -90,7 +103,8 @@ playwright.config.ts
 ## 5. Test Writing Conventions
 
 ```typescript
-import { test, expect } from '../utils/fixtures/calculator.fixture';
+// Import path is relative to the spec's subdirectory (e.g. src/tests/regression/)
+import { test, expect } from '../../utils/fixtures/calculator.fixture';
 // Always import from the fixture — never directly from @playwright/test
 
 test.describe('Feature Name', () => {
@@ -195,19 +209,31 @@ await page.waitForTimeout(300); // required — MathQuill renders asynchronously
 
 Never use `locator.fill()` on MathQuill fields.
 
+**Select-all in MathQuill:** `Ctrl+A` does nothing. Use `End` → `Shift+Home` to select the full expression content before overwriting or deleting:
+
+```typescript
+await mathInputField.click();
+await page.keyboard.press('End');
+await page.keyboard.press('Shift+Home');
+await page.keyboard.type(newText); // or press('Backspace') to clear
+await page.waitForTimeout(300);
+```
+
 ### Canvas Assertions
 
 The graph is HTML5 Canvas — never assert pixel content. Use DOM proxy signals:
 
 ```typescript
 // Valid expression rendered — no error present
-await expect(page.locator('.dcg-expressionitem .dcg-error')).not.toBeVisible();
+// Errors render as role="note" inside the expression item; absent when expression is valid
+await expect(calculatorPage.expressionError).not.toBeVisible(); // expressionError = getByRole('note')
 
 // Undefined variable created a slider
 await expect(page.locator('.dcg-slider-play-btn')).toBeVisible();
 
-// POI tooltip coordinates
-await expect(page.locator('.dcg-trace-coordinates')).toContainText('(2, 0)');
+// POI tooltip coordinates — use Export-button grandparent; .dcg-trace-coordinates no longer exists
+// Negative values use Unicode minus U+2212, not ASCII hyphen
+await expect(calculatorPage.traceCoordinates).toContainText('2, 0');
 ```
 
 Screenshot comparison is acceptable for visual regression if tolerance is set.
@@ -216,18 +242,20 @@ Screenshot comparison is acceptable for visual regression if tolerance is set.
 
 ```ini
 Expression list:    .dcg-expressionlist
-Expression item:    .dcg-expressionitem
+Expression item:    .dcg-expressionitem[expr-id]   (filter real rows — omit [expr-id] to match all)
 Math input field:   .dcg-mq-editable-field
-Add Item button:    [aria-label="Add Item"]
-Graph canvas:       .dcg-graph-outer canvas
-Zoom In:            [aria-label="Zoom In"]
-Zoom Out:           [aria-label="Zoom Out"]
-Reset View:         [aria-label="Reset to Default View"]
-Share:              [aria-label="Share Graph"]
-Keypad open:        [aria-label="Open Keypad"]
-Keypad close:       [aria-label="Close Keypad"]
+Expression error:   getByRole('note')              (.dcg-error is absent from live DOM)
+Add Item button:    getByRole('button', { name: 'Add Item' })
+Graph canvas:       .dcg-graph-outer[role="img"]   (two .dcg-graph-outer exist; only one has role="img")
+Zoom In:            getByRole('button', { name: 'Zoom In' })
+Zoom Out:           getByRole('button', { name: 'Zoom Out' })
+Reset View:         getByRole('button', { name: 'Default Viewport' })   (NOT "Reset to Default View")
+Share:              getByRole('button', { name: 'Share Graph' })
+Keypad open:        getByRole('button', { name: 'Open Keypad' })
 Slider play:        .dcg-slider-play-btn
-Eye toggle:         .dcg-expression-icon
+Eye toggle:         .dcg-expression-icon-container  (.dcg-expression-icon is visual-only, non-interactable)
+Color swatch:       .dcg-color-tile                 (role="option"; .dcg-color-option does not exist)
+POI coordinates:    Export-button grandparent — getByRole('button', { name: 'Export point…' }).locator('../..')
 ```
 
 Always verify against live DOM before hardcoding — Desmos may update class names.
@@ -258,12 +286,15 @@ Project skills live in `.claude/{skill-name}/SKILL.md`. They are **context skill
 
 Feature → file mapping for this project:
 
-| Feature folder (`docs/testCases/`) | Page Object         | Fixture                    | Spec file                   |
-|------------------------------------|---------------------|----------------------------|-----------------------------|
-| `expression-entry`                 | `CalculatorPage.ts` | `calculator.fixture.ts`    | `expression-entry.spec.ts`  |
-| `graph-settings`                   | `GraphSettingsPage.ts` | `graph-settings.fixture.ts` | `graph-settings.spec.ts` |
-| `sliders-animations`               | `SlidersPage.ts`    | `sliders.fixture.ts`       | `sliders-animations.spec.ts`|
-| `save-load-share`                  | `SharePage.ts`      | `share.fixture.ts`         | `save-load-share.spec.ts`   |
+Spec files live under `src/tests/{smoke|regression|e2e|performance}/` — the feature name is the file name.
+
+| Feature folder (`docs/testCases/`) | Page Object            | Fixture(s)                                                  | Spec file(s)              |
+|------------------------------------|------------------------|-------------------------------------------------------------|---------------------------|
+| `expression-entry`                 | `CalculatorPage.ts`    | `calculator.fixture.ts`                                     | `expression-entry.spec.ts` |
+| `graph-settings`                   | `GraphSettingsPage.ts` | `graph-settings.fixture.ts`                                 | `graph-settings.spec.ts`  |
+| `graph-settings` (e2e)             | Both of the above      | `e2e-graph-settings.fixture.ts` (composite — both page objects on one page) | `graph-settings.spec.ts` under `e2e/` |
+| `sliders-animations`               | `SlidersPage.ts`       | `sliders.fixture.ts`                                        | `sliders-animations.spec.ts` |
+| `save-load-share`                  | `SharePage.ts`         | `share.fixture.ts`                                          | `save-load-share.spec.ts` |
 
 ---
 

@@ -31,6 +31,11 @@ export class CalculatorPage {
   readonly graphCanvas: Locator;
   readonly traceCoordinates: Locator;
 
+  // Canvas expression label rendered for complex number points (e.g. "3+4i" → shows "3+4i" text
+  // on the graph canvas). Complex points produce no Export-button trace tooltip, so this is the
+  // only available DOM proxy that a complex expression has been plotted. Selector: SELECTORS.COMPLEX_LABEL.
+  readonly complexExpressionLabel: Locator;
+
   // Accessibility — selector unverified — confirm against live DOM before committing
   readonly ariaLiveRegion: Locator;
 
@@ -66,13 +71,22 @@ export class CalculatorPage {
     // .dcg-trace-coordinates CSS class no longer matches the live DOM.
     // The trace tooltip parent (dcg-tooltip-hit-area-container) holds the Export button but not
     // the coordinate text — the coordinate display is a sibling at the grandparent level.
-    // Use grandparent (xpath=../..) so toContainText and innerText capture the coordinate text.
+    // KNOWN EXCEPTION — XPath parent traversal: the selector priority rules forbid XPath, but
+    // no stable class or aria attribute exists on the coordinate-bearing ancestor element.
+    // locator('xpath=..') is used to navigate up two levels from the Export button to reach
+    // the container that holds the coordinate text. If Desmos adds a stable selector on this
+    // ancestor in a future version, replace these two locator('xpath=..') calls with it.
     // When multiple trace points are locked simultaneously, Desmos orders the Export
     // buttons left-to-right by graph x-coordinate. Use .first() so that the locator
     // consistently resolves to the leftmost locked point — for single-point tests
     // .first() is equivalent to the only element; for the two-intercept test it
     // resolves to the left intercept (-2, 0) while the right intercept (2, 0) is last.
-    this.traceCoordinates = page.getByRole('button', { name: 'Export point to expression list' }).first().locator('..').locator('..');
+    this.traceCoordinates = page
+      .getByRole('button', { name: 'Export point to expression list' })
+      .first()
+      .locator('xpath=..')
+      .locator('xpath=..');
+    this.complexExpressionLabel = page.locator(SELECTORS.COMPLEX_LABEL);
     this.ariaLiveRegion = page.locator(SELECTORS.ARIA_LIVE_REGION).first();
   }
 
@@ -189,6 +203,16 @@ export class CalculatorPage {
     // Move with steps so Desmos receives a sequence of mousemove events, which is
     // required for the hover-trace tooltip to activate.
     await this.page.mouse.move(box.x + x, box.y + y, { steps: 10 });
+  }
+
+  /** Returns a locator for the MathQuill textbox inside the last expression item. */
+  getLastExpressionTextbox(): Locator {
+    return this.expressionItems.last().getByRole('textbox');
+  }
+
+  /** Returns the rendered text of the trace-coordinates tooltip, trimmed of whitespace. */
+  async getTraceCoordinatesText(): Promise<string> {
+    return (await this.traceCoordinates.innerText()).trim();
   }
 
   /**

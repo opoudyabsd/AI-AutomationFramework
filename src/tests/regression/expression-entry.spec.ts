@@ -1,5 +1,6 @@
 import { test, expect } from '../../utils/fixtures/calculator.fixture';
 import { expressionEntryData, graphCoordinates } from '../../testData/testData';
+import { ARIA_PATTERNS } from '../../testData/constants';
 
 test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] }, () => {
   test.beforeEach(async ({ calculatorPage }) => {
@@ -124,11 +125,10 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
       // Desmos uses a single MathQuill aria-live span (always empty) and does not expose a
       // persistent announcement live region, so aria-live content cannot be reliably asserted.
       // The textbox accessible name ("Expression N:") confirms the item is screen-reader navigable.
-      const newItem = calculatorPage.expressionItems.last();
       // MathQuill's <textarea> is CSS-hidden but screen-reader accessible via aria-labelledby.
       // toBeVisible() fails because it is intentionally hidden; check accessible name directly.
-      await expect(newItem.getByRole('textbox')).toHaveAccessibleName(/Expression \d+:/);
-      await expect(newItem.getByRole('textbox')).toBeFocused();
+      await expect(calculatorPage.getLastExpressionTextbox()).toHaveAccessibleName(ARIA_PATTERNS.EXPRESSION_TEXTBOX_LABEL);
+      await expect(calculatorPage.getLastExpressionTextbox()).toBeFocused();
     });
   });
 
@@ -143,7 +143,7 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
 
       // Assert — when hidden the button accessible name changes to "Show Expression N"
       // (.dcg-expression-icon is visual-only and does not receive a 'hidden' CSS class we can observe)
-      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(/Show Expression/);
+      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(ARIA_PATTERNS.SHOW_EXPRESSION);
     });
 
     // TC-E1-04-002 | Priority 3
@@ -156,7 +156,7 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
       await calculatorPage.toggleExpressionVisibility(); // show
 
       // Assert — button name reverts to "Hide Expression N" (expression is visible again)
-      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(/Hide Expression/);
+      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(ARIA_PATTERNS.HIDE_EXPRESSION);
     });
 
     // TC-E1-04-003 | Priority 3
@@ -168,7 +168,7 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
       await calculatorPage.hideExpressionViaKeyboard();
 
       // Assert — button name changed to "Show Expression N" confirms the expression was hidden
-      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(/Show Expression/);
+      await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(ARIA_PATTERNS.SHOW_EXPRESSION);
     });
 
     test.describe('Style menu', () => {
@@ -246,7 +246,7 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
         // This prevents the not.toHaveText('') bug where an empty baseline
         // would make the assertion trivially pass or always fail.
         await expect(calculatorPage.traceCoordinates).not.toBeEmpty();
-        const coordsAtPos1 = (await calculatorPage.traceCoordinates.innerText()).trim();
+        const coordsAtPos1 = await calculatorPage.getTraceCoordinatesText();
 
         // Act — move to a different position on the curve
         await calculatorPage.hoverGraphAtGraphCoord(

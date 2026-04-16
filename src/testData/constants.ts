@@ -27,6 +27,11 @@ export const SELECTORS = {
   // Exclude it so ariaLiveRegion points to Desmos's own announcement element.
   ARIA_LIVE_REGION: '[aria-live]:not(.dcg-mq-aria-alert)',
   COLOR_OPTION: '.dcg-color-tile',
+  // Live-verified: .dcg-label is the canvas expression label Desmos renders for complex number
+  // points (e.g. "3+4i" plotted as the point (3,4)). Complex points do NOT produce an
+  // "Export point to expression list" button, so .dcg-label is the only stable DOM proxy
+  // that a complex expression has been rendered on the canvas.
+  COMPLEX_LABEL: '.dcg-label',
   // Axis bound inputs inside the Graph Settings panel — MathQuill fields with data-dcg-label.
   // Live-verified: these are .dcg-mq-editable-field elements; fill() does not work.
   // Use click() + End + Shift+Home + keyboard.type() to set values.
@@ -56,3 +61,10 @@ export const SHORTCUTS = {
   ADD_EXPRESSION: 'Control+Alt+x',
   OPEN_STYLE: 'Control+Shift+O',
 } as const;
+
+// Accessible-name patterns used in assertions — centralised to avoid hardcoding in test files
+export const ARIA_PATTERNS = {
+  SHOW_EXPRESSION: /Show Expression/,
+  HIDE_EXPRESSION: /Hide Expression/,
+  EXPRESSION_TEXTBOX_LABEL: /Expression \d+:/,
+};

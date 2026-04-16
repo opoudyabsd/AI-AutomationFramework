@@ -35,6 +35,10 @@ export class GraphSettingsPage {
   readonly yMinField: Locator;
   readonly yMaxField: Locator;
 
+  // Complex Mode toggle — live-verified: role="checkbox", aria-label="Complex Mode".
+  // Visible in the settings panel without expanding "More Options".
+  readonly complexModeToggle: Locator;
+
   // Expression list — used only to confirm calculator has fully loaded.
   private readonly expressionList: Locator;
 
@@ -62,6 +66,9 @@ export class GraphSettingsPage {
     this.xMaxField = this.settingsPanel.locator(SELECTORS.X_MAX_FIELD);
     this.yMinField = this.settingsPanel.locator(SELECTORS.Y_MIN_FIELD);
     this.yMaxField = this.settingsPanel.locator(SELECTORS.Y_MAX_FIELD);
+
+    // Live-verified: role="checkbox", aria-label="Complex Mode", class="dcg-toggle-view"
+    this.complexModeToggle = this.settingsPanel.getByRole('checkbox', { name: 'Complex Mode' });
 
     this.expressionList = page.locator(SELECTORS.EXPRESSION_LIST);
   }
@@ -121,6 +128,24 @@ export class GraphSettingsPage {
   /** Selects Radians as the active angle unit. The settings panel must already be open. */
   async switchToRadians(): Promise<void> {
     await this.radiansOption.click();
+  }
+
+  /**
+   * Enables Complex Mode. The settings panel must already be open.
+   * Clicks the toggle unconditionally — caller is responsible for verifying
+   * the prior state (default is disabled on a fresh calculator load).
+   */
+  async enableComplexMode(): Promise<void> {
+    await this.complexModeToggle.click();
+  }
+
+  /**
+   * Disables Complex Mode. The settings panel must already be open.
+   * Clicks the toggle unconditionally — caller is responsible for verifying
+   * the prior state.
+   */
+  async disableComplexMode(): Promise<void> {
+    await this.complexModeToggle.click();
   }
 
   /**

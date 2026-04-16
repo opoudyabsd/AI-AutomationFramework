@@ -65,7 +65,7 @@ Use this exact template for every test case file. All fields are required.
 
 ## Notes for Automation
 
-- **Selector:** [CSS class or aria-label for the primary element under test]
+- **Selector:** [Preferred in this order: semantic role/label (`getByRole`, `getByLabel`) → `data-*` attribute → `.dcg-*` scoped class. Cross-check against `src/testData/constants.ts` for live-verified values.]
 - **Input method:** [Exactly how to enter data — specify keyboard.type() for MathQuill fields]
 - **Assertion strategy:** [How to verify the outcome — use DOM proxy signals for canvas results]
 - **Wait strategy:** [How to handle async rendering — prefer toBeVisible() over waitForTimeout]
@@ -122,7 +122,7 @@ Expected output: The skill identifies `US-E1-04` as the closest match by feature
 - **Scenario has no comment label**: Default to `regression`. Do not leave the test type blank.
 - **Background block is absent**: Use the standard precondition (calculator open at the URL, fresh state) without inferring additional preconditions.
 - **Scenario spans multiple features**: Assign `e2e` only if the scenario genuinely requires interacting with two or more distinct UI features. When in doubt, use `regression`.
-- **User asks for test cases AND test code**: Generate the `.md` test case files first. Inform the user that Playwright implementation requires the `playwright-test-generator` agent and should be done separately.
+- **User asks for test cases AND test code**: Generate the `.md` test case files first. Inform the user that Playwright implementation requires the `playwright-testScript-creation` skill and should be done separately.
 
 ---
 
@@ -134,3 +134,4 @@ Load only when needed for the current task:
 |------|-----------|
 | `docs/projectContext.md` | Always — load at Step 1 before writing any test case |
 | `docs/userstory/[file].md` | Load the specific file matching the requested story ID, or all files when no ID is specified |
+| `src/testData/constants.ts` | When writing Notes for Automation — cross-check selector names and ARIA labels against live-verified values |

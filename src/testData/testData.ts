@@ -41,6 +41,19 @@ export const e2eGraphSettingsData = {
   panDistancePx: -50,
 } as const;
 
+export const complexModeData = {
+  // TC-E2-E2E-004: Complex Mode round-trip
+  simpleComplexExpression: '3+4i',
+  // (1+2i)^2 evaluates to −3+4i. In MathQuill the ^ key enters superscript mode;
+  // the expression renders correctly but the cursor stays inside the exponent after
+  // keyboard.type(). Press Right after typing to move the cursor out of the superscript
+  // before issuing the next action.
+  complexPowerExpression: '(1+2i)^2',
+  // Note: complex points do not produce an Export-button trace tooltip.
+  // The canvas renders a .dcg-label with the expression text instead.
+  // No coordinate DOM proxy exists — omit coordinate assertions for complex points.
+} as const;
+
 export const graphCoordinates = {
   // Graph-unit coordinates for the default Desmos view (x ∈ [-10,10], y ∈ [-10,10]).
   // Converted to canvas pixels at runtime using canvas bounding box —
@@ -50,4 +63,5 @@ export const graphCoordinates = {
   sineWavePos2:    { graphX: 1.5,  graphY: 1  },  // sin(x) near (π/2, 1)
   rightIntercept:  { graphX: 2,    graphY: 0  },  // y=x^2-4 at (2, 0)
   leftIntercept:   { graphX: -2,   graphY: 0  },  // y=x^2-4 at (-2, 0)
+  complexPoint3Plus4i: { graphX: 3, graphY: 4 },  // 3+4i: Re=3 → x=3, Im=4 → y=4
 } as const;

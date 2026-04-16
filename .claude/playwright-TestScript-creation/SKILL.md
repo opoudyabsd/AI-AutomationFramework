@@ -88,7 +88,7 @@ writing code to avoid stale-selector bugs.
 
 10. **Write or update the fixture** at `src/utils/fixtures/[kebab].fixture.ts`.
    Extend the `Fixtures` type — do not replace the file.
-11. **Write or update the spec** at `src/tests/[feature].spec.ts`:
+11. **Write or update the spec** at `src/tests/[testType]/[feature].spec.ts` (e.g. `src/tests/regression/expression-entry.spec.ts`):
 
 - Import `test` and `expect` from the fixture only, not from `@playwright/test`
    directly (the fixture re-exports `expect` and ensures correct context).
@@ -120,14 +120,19 @@ writing code to avoid stale-selector bugs.
 
 ## Output structure
 
-```html
+```
 src/
   testData/
-    constants.ts          # selectors, timeouts, aria-labels, shortcuts
-    testData.ts           # expressions, expected values, graph coordinates
-  pages/[PageName].ts     # POM: readonly locators + user-action methods
-  tests/regressionOrSmokeOrE2E/[feature].spec.ts # test.describe > test.beforeEach + test()
-  utils/fixtures/[feature].fixture.ts  # base.extend<Fixtures>({ … })
+    constants.ts                           # selectors, timeouts, aria-labels, shortcuts
+    testData.ts                            # expressions, expected values, graph coordinates
+    cssConstant.ts                         # CSS attribute names and values (aria-checked etc.)
+  pages/[PageName].ts                      # POM: readonly locators + user-action methods
+  tests/
+    smoke/[feature].spec.ts               # first critical happy-path test per feature
+    regression/[feature].spec.ts          # all other functional tests
+    e2e/[feature].spec.ts                 # multi-feature cross-cutting flows
+    performance/[feature].spec.ts         # (reserved) speed tests
+  utils/fixtures/[feature].fixture.ts     # base.extend<Fixtures>({ … })
 ```
 
 **POM constructor skeleton:**
@@ -161,8 +166,9 @@ export { expect } from '@playwright/test';
 **Spec skeleton:**
 
 ```typescript
-import { test, expect } from '../utils/fixtures/calculator.fixture';
-import { expressionEntryData, graphCoordinates } from '../testData/testData';
+// Specs live in src/tests/{smoke|regression|e2e|performance}/ — two levels from src/
+import { test, expect } from '../../utils/fixtures/calculator.fixture';
+import { expressionEntryData, graphCoordinates } from '../../testData/testData';
 
 test.describe('Feature Name', () => {
   test.beforeEach(async ({ calculatorPage }) => { await calculatorPage.goto(); });
@@ -181,10 +187,13 @@ test.describe('Feature Name', () => {
 
 ## Feature → file mapping
 
-| Feature folder | Page Object | Fixture | Spec |
+Spec files live under `src/tests/{smoke|regression|e2e|performance}/`.
+
+| Feature folder | Page Object | Fixture(s) | Spec |
 |---|---|---|---|
 | `expression-entry` | `CalculatorPage.ts` | `calculator.fixture.ts` | `expression-entry.spec.ts` |
 | `graph-settings` | `GraphSettingsPage.ts` | `graph-settings.fixture.ts` | `graph-settings.spec.ts` |
+| `graph-settings` (e2e) | Both POMs above | `e2e-graph-settings.fixture.ts` (composite — both page objects share one page) | `graph-settings.spec.ts` under `e2e/` |
 | `sliders-animations` | `SlidersPage.ts` | `sliders.fixture.ts` | `sliders-animations.spec.ts` |
 | `save-load-share` | `SharePage.ts` | `share.fixture.ts` | `save-load-share.spec.ts` |
 
@@ -195,7 +204,7 @@ New feature folders: derive `[PascalCase]Page.ts`, `[kebab].fixture.ts`, `[kebab
 ## Desmos DOM quick reference
 
 Live-verified corrections — these override `projectContext.md`. Load
-`.claude/playwright-TestScript-creation/dom-gotchas.md` for full details and
+`.claude/playwright-testScript-creation/dom-gotchas.md` for full details and
 code examples.
 
 | Area | Documented assumption | Live DOM truth |
@@ -206,7 +215,7 @@ code examples.
 | Trace coordinates | `.dcg-trace-coordinates` (removed) | Export-button anchor: `getByRole('button', { name: 'Export point…' }).first().locator('xpath=../..') ` |
 | Style menu | `.dcg-options-menu` (never existed) | Button name `/Options for Expression/` when open |
 | Graph canvas | `.dcg-graph-outer` (2 elements) | `.dcg-graph-outer[role="img"]` |
-| Canvas click | `locator.click()` (blocked by overlay) | `page.mouse.move(x, y, { steps: 5 })` → `page.mouse.click(x, y)` |
+| Canvas click | `locator.click()` (blocked by overlay) | `page.mouse.move(x, y, { steps: 15 })` → dwell 300 ms → `page.mouse.click(x, y)` |
 | MathQuill select-all | `Ctrl+A` (does nothing) | `End` → `Shift+Home` |
 
 **Trace tooltip rules (summary):**
@@ -251,10 +260,11 @@ code examples.
 | File | Load when |
 |---|---|
 | `docs/projectContext.md` | Always — load at Phase 1 before writing any code |
-| `.claude/playwright-TestScript-creation/dom-gotchas.md` | Any selector or interaction fails or behaves unexpectedly |
+| `.claude/playwright-testScript-creation/dom-gotchas.md` | Any selector or interaction fails or behaves unexpectedly |
 | `docs/testCases/[type]/[feature]/[TC-ID].md` | Load the specific test cases being implemented |
 | `src/pages/[PageName].ts` | Always before creating or modifying a Page Object |
 | `src/utils/fixtures/[name].fixture.ts` | Always before creating or modifying a fixture |
-| `src/tests/[feature].spec.ts` | Always before creating or modifying a spec file |
+| `src/tests/[testType]/[feature].spec.ts` | Always before creating or modifying a spec file |
+| `src/testData/cssConstant.ts` | When tests need CSS attribute names or boolean attribute values |
 | `src/testData/constants.ts` | Always before writing any selector, timeout, or aria-label |
 | `src/testData/testData.ts` | Always before writing any input value or expected assertion value |

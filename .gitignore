@@ -10,3 +10,4 @@ node_modules/
 
 # Local Claude settings
 .claude/settings.local.json
+.env

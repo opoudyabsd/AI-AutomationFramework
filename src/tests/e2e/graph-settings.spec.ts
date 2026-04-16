@@ -1,7 +1,7 @@
 import { test, expect } from '../../utils/fixtures/e2e-graph-settings.fixture';
-import { e2eGraphSettingsData, graphSettingsData, expressionEntryData, graphCoordinates } from '../../testData/testData';
+import { e2eGraphSettingsData, graphSettingsData, expressionEntryData, graphCoordinates, complexModeData } from '../../testData/testData';
 import { ATTRS, ATTR_VALUES } from '../../testData/cssConstant';
-import { DESMOS_ANIMATION_SETTLE_DELAY } from '../../testData/constants';
+import { DESMOS_ANIMATION_SETTLE_DELAY, MATHQUILL_RENDER_DELAY } from '../../testData/constants';
 
 test.describe('Graph Settings – E2E', { tag: ['@e2e', '@graph-settings'] }, () => {
   test.beforeEach(async ({ graphSettingsPage }) => {
@@ -74,8 +74,17 @@ test.describe('Graph Settings – E2E', { tag: ['@e2e', '@graph-settings'] }, ()
   // Period-change proxy: the aria-checked state on the radio buttons is the
   // only stable DOM signal for the active angle unit. Canvas-rendered tick
   // numbers and curve shape are not assertable via DOM.
+  //
+  // COVERAGE GAP (H4/K3): TC steps 2, 7, 11 call for hover-trace assertions to
+  // confirm the sin(x) peak position (x≈1.57 in radians; x≈90 in degrees).
+  // Step 7 is infeasible at the default viewport (x∈[−10,10] does not reach x=90).
+  // Steps 2 and 11 are omitted because traceCoordinates requires a locked POI click,
+  // and adding canvas clicks here introduces timing sensitivity without proportionate
+  // coverage value. The aria-checked assertions (below) confirm the control state
+  // changed; expression-health assertions confirm no render errors occurred.
+  // Revisit when a hover-trace DOM proxy that does not require the Export button is available.
   // ─────────────────────────────────────────────────────────────────────────────
-  test('should switch angle unit from radians to degrees and back, verifying expression renders throughout',
+  test('should switch angle unit from radians to degrees and back, verifying angle unit state and expression health',
     async ({ graphSettingsPage, calculatorPage }) => {
 
       // ── Phase 1: Graph sin(x) — baseline in default Radians mode ─────────────
@@ -181,6 +190,10 @@ test.describe('Graph Settings – E2E', { tag: ['@e2e', '@graph-settings'] }, ()
 
       // Even after the aria-label settles, Desmos requires a brief canvas settle period
       // before POI trace clicks are reliable.
+      // TODO (F1): No DOM observable signal exists for post-animation canvas readiness.
+      // Replace with a web-first wait if Desmos exposes a ready-state attribute in a
+      // future version. The 1000 ms value is empirically determined — review if CI flakiness
+      // is observed after resetView() (see constants.ts DESMOS_ANIMATION_SETTLE_DELAY).
       await page.waitForTimeout(DESMOS_ANIMATION_SETTLE_DELAY);
 
       // graphCoordToCanvasPixel is reliable only when the ±10 default range is active,
@@ -198,6 +211,100 @@ test.describe('Graph Settings – E2E', { tag: ['@e2e', '@graph-settings'] }, ()
 
       await expect(calculatorPage.expressionItem).toBeVisible();
       await expect(calculatorPage.expressionError).not.toBeVisible();
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TC-E2-E2E-004 | Priority 3
+  // Complex Mode full round-trip:
+  //   enable → enter 3+4i → trace point → enter (1+2i)^2
+  //   → disable → verify both expressions error
+  //   → re-enable → verify errors clear (recovery confirmed).
+  //
+  //
+  // MathQuill note: typing (1+2i)^2 leaves the cursor inside the ^ superscript.
+  // A Right arrow press after keyboard.type() moves the cursor out. The expression
+  // renders correctly regardless of cursor position during the waitForTimeout.
+  // ─────────────────────────────────────────────────────────────────────────────
+  test('should enable Complex Mode, plot complex expressions, disable to verify errors, re-enable to verify recovery',
+    async ({ graphSettingsPage, calculatorPage, page }) => {
+
+      // ── Phase 1: Enable Complex Mode ─────────────────────────────────────────
+
+      await graphSettingsPage.openSettings();
+      await graphSettingsPage.enableComplexMode();
+
+      // Confirm the toggle is now in the enabled (checked) state.
+      // toBeChecked() works for both role="switch" (aria-checked) and role="checkbox".
+      await expect(graphSettingsPage.complexModeToggle).toBeChecked();
+
+      await graphSettingsPage.closeSettings();
+
+      // ── Phase 2: Enter first complex expression — 3+4i ───────────────────────
+
+      // 3+4i plots as the point (3, 4) on the graph — Re on x-axis, Im on y-axis.
+      await calculatorPage.typeExpression(complexModeData.simpleComplexExpression);
+
+      await expect(calculatorPage.expressionItem).toBeVisible();
+      await expect(calculatorPage.expressionError).not.toBeVisible();
+
+      // ── Phase 3: Verify complex point is rendered on the canvas ──────────────
+
+      // Complex number points do not produce an "Export point" trace tooltip.
+      // Instead Desmos renders a .dcg-label element on the graph showing the
+      // expression text. Clicking near the point highlights it; the label being
+      // visible is the only stable DOM proxy that the point has been plotted.
+      await calculatorPage.clickGraphAtGraphCoord(
+        graphCoordinates.complexPoint3Plus4i.graphX,
+        graphCoordinates.complexPoint3Plus4i.graphY,
+      );
+
+      // complexExpressionLabel (.dcg-label) is the canvas label Desmos renders for complex
+      // points — it shows the expression text ("3+4i") on the graph. No Export-button trace
+      // tooltip exists for complex points, so label visibility + content is the only DOM proxy.
+      await expect(calculatorPage.complexExpressionLabel).toBeVisible();
+      await expect(calculatorPage.complexExpressionLabel).toContainText('3+4i');
+
+      // ── Phase 4: Add second line and enter (1+2i)^2 ───────────────────────────
+
+      // addExpressionLineViaEnter() moves keyboard focus to the new blank line.
+      // Type directly (without clicking) to land in the second expression slot.
+      await calculatorPage.addExpressionLineViaEnter();
+      await page.keyboard.type(complexModeData.complexPowerExpression);
+      // Exit the MathQuill superscript cursor position so subsequent key presses
+      // do not accidentally modify the exponent.
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(MATHQUILL_RENDER_DELAY);
+
+      // (1+2i)^2 = −3+4i — valid complex expression; no error expected.
+      const secondItem  = calculatorPage.expressionItems.nth(1);
+      const secondError = secondItem.getByRole('note');
+
+      await expect(secondItem).toBeVisible();
+      await expect(secondError).not.toBeVisible();
+
+      // ── Phase 5: Disable Complex Mode — both expressions must show errors ─────
+
+      await graphSettingsPage.openSettings();
+      await graphSettingsPage.disableComplexMode();
+      await expect(graphSettingsPage.complexModeToggle).not.toBeChecked();
+      await graphSettingsPage.closeSettings();
+
+      // 3+4i and (1+2i)^2 are invalid outside Complex Mode — role="note" error
+      // elements must appear for both expression items.
+      await expect(calculatorPage.expressionError).toBeVisible();
+      await expect(secondError).toBeVisible();
+
+      // ── Phase 6: Re-enable Complex Mode — errors must clear (recovery) ────────
+
+      await graphSettingsPage.openSettings();
+      await graphSettingsPage.enableComplexMode();
+      await expect(graphSettingsPage.complexModeToggle).toBeChecked();
+      await graphSettingsPage.closeSettings();
+
+      // Both expressions are re-evaluated as valid complex numbers — errors gone.
+      await expect(calculatorPage.expressionError).not.toBeVisible();
+      await expect(secondError).not.toBeVisible();
     },
   );
 });
