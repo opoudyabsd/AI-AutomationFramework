@@ -13,7 +13,9 @@
       "expectations": [
         "A .md file is created under docs/reviewReport/runs/ — not pasted into chat",
         "docs/reviewReport/INDEX.md contains a new row for this run",
-        "The Summary table in chat contains rows for all 11 categories (A through K)",
+        "The Summary table in chat contains rows for all 13 categories (A through M)",
+        "Categories B, C, H show '✅' or '—' (UI only) — not flagged for API patterns",
+        "Category M shows '— not applicable' since this is a UI test scope",
         "Every finding includes a check ID (e.g. B4), the file path, a violation snippet, and a fix snippet",
         "No finding is invented — every cited snippet exists verbatim in the reviewed file"
       ]
@@ -37,13 +39,41 @@
     {
       "id": 3,
       "prompt": "Scan all my Playwright tests for issues.",
-      "expected_output": "The report scope is 'all'. Every spec file under src/tests/ is reviewed. A single run report and an updated INDEX.md are written to disk.",
+      "expected_output": "The report scope is 'all'. Every spec file under src/tests/ — including src/tests/api/ — is reviewed. A single run report and an updated INDEX.md are written to disk.",
       "files": [],
       "expectations": [
         "Report scope field reads 'all'",
-        "Files reviewed list includes every .spec.ts found under src/tests/",
+        "Files reviewed list includes every .spec.ts found under src/tests/ including API specs",
         "A single run report is written — not one per spec file",
-        "The summary table totals are the sum across all reviewed files"
+        "The summary table totals are the sum across all reviewed files",
+        "For API spec files, categories B, C, H are marked '— not applicable'",
+        "For UI spec files, category M is marked '— not applicable'",
+        "Category L (Design Principles) is evaluated for all spec files regardless of type"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Review the calculator-core API tests.",
+      "expected_output": "A report file is written to docs/reviewReport/runs/REVIEW-<date>-api.md. Only the file path and Summary table are shown in chat. INDEX.md is updated.",
+      "files": [
+        "src/tests/api/calculator-core/calculator-core.spec.ts",
+        "src/utils/fixtures/api-calculator.fixture.ts",
+        "src/testData/apiConfig.ts",
+        "src/testData/apiTestData.ts",
+        "docs/APITestCases/calculator-core/"
+      ],
+      "expectations": [
+        "A .md file is created under docs/reviewReport/runs/ — not pasted into chat",
+        "docs/reviewReport/INDEX.md contains a new row for this run",
+        "The Summary table shows '— not applicable' for categories B, C, and H",
+        "Category M (API Test Architecture) is evaluated against the fixture and spec",
+        "Category L (Design Principles) is evaluated for all files in scope",
+        "For Category K (API): // TC-API-* comments are matched against docs/APITestCases/calculator-core/",
+        "If the coverage status comment lists TCs as pending (⏳), those TCs are NOT flagged as K4 violations",
+        "Any TC-API-* reference with no matching file in docs/APITestCases/ is flagged as K2 P1",
+        "M1 (unnamespaced window global) is flagged if __testCalculator is used instead of a namespaced key",
+        "M3 (no CDN timeout) is flagged if waitForFunction has no explicit timeout option",
+        "No finding is invented — every cited snippet exists verbatim in the reviewed file"
       ]
     }
   ]
