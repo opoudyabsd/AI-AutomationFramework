@@ -172,9 +172,15 @@ export class CalculatorPage {
     const { x, y } = this.graphCoordToCanvasPixel(box, graphX, graphY);
     // Use raw mouse methods — locator.click() is blocked by the second .dcg-graph-outer
     // div (no role) that sits on top and intercepts pointer events for the role="img" layer.
-    // Move with steps first so Desmos receives mousemove events to activate trace,
-    // then click to lock the trace point.
-    await this.page.mouse.move(box.x + x, box.y + y, { steps: 5 });
+    // steps:15 fires enough intermediate mousemove events for Desmos's trace-snapping
+    // engine to detect the curve and snap to the nearest POI before the click locks it.
+    // Live-verified: steps:5 is too few for the snap algorithm to engage — the trace
+    // lands on an off-curve pixel and no Export button appears.
+    await this.page.mouse.move(box.x + x, box.y + y, { steps: 15 });
+    // Brief dwell so Desmos's trace engine has time to snap to the nearest POI
+    // before the click locks it. Without this pause the snap may not have fired yet,
+    // causing the Export button to never appear (observed after resetView() cycles).
+    await this.page.waitForTimeout(300);
     await this.page.mouse.click(box.x + x, box.y + y);
   }
 

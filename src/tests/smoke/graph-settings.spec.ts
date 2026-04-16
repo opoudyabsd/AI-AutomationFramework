@@ -2,7 +2,7 @@ import { test, expect } from '../../utils/fixtures/graph-settings.fixture';
 import { graphSettingsData } from '../../testData/testData';
 import { ATTRS } from '../../testData/cssConstant';
 
-test.describe('Graph Settings', { tag: ['@smoke', '@graph-settings'] }, () => {
+test.describe('Graph Settings – Smoke', { tag: ['@smoke', '@graph-settings'] }, () => {
   test.beforeEach(async ({ graphSettingsPage }) => {
     await graphSettingsPage.goto();
   });

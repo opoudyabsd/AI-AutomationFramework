@@ -23,6 +23,24 @@ export const graphSettingsData = {
   zoomStepsToLeaveDefault: 3,
 } as const;
 
+export const e2eGraphSettingsData = {
+  // Custom axis domain applied in TC-E2-E2E-001
+  customXMin: '0',
+  customXMax: '4',
+  customYMin: '-1',
+  customYMax: '5',
+  // Default axis values used when resetting the viewport
+  defaultXMin: '-10',
+  defaultXMax: '10',
+  defaultYMin: '-10',
+  defaultYMax: '10',
+  // After setting x ∈ [0, 4] the canvas aria-label reads "X axis visible from 0 to 4 …"
+  customViewportXPattern: /from 0 to 4/,
+  // TC-E2-E2E-003: horizontal pixel distance for the canvas pan drag step.
+  // Negative = drag left (viewport pans right toward the right intercept region).
+  panDistancePx: -50,
+} as const;
+
 export const graphCoordinates = {
   // Graph-unit coordinates for the default Desmos view (x ∈ [-10,10], y ∈ [-10,10]).
   // Converted to canvas pixels at runtime using canvas bounding box —

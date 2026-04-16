@@ -1,9 +1,15 @@
 {
   "name": "aistory",
   "version": "1.0.0",
-  "description": "",
+  "description": "Hybrid AI-assisted Playwright automation framework for the Desmos Graphing Calculator.",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:graph-settings": "playwright test src/tests/graph-settings.spec.ts",
+    "report": "playwright show-report"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

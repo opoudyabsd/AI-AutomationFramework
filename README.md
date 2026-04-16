@@ -1,6 +1,13 @@
-# AIStory — Playwright E2E Test Suite for Desmos Graphing Calculator
+# AIStory — Hybrid AI-Assisted Playwright Automation Framework
 
-Automated end-to-end test suite for the [Desmos Graphing Calculator](https://www.desmos.com/calculator), built with **Playwright** and **TypeScript** following the **Page Object Model (POM)** pattern with Playwright Fixtures.
+AIStory is a hybrid automation framework for the [Desmos Graphing Calculator](https://www.desmos.com/calculator). It combines **Playwright** execution, structured test documentation, and AI agent workflows for planning, generating, reviewing, and healing end-to-end tests.
+
+The current repository is intentionally **AI-assisted, not fully autonomous**:
+
+- **Playwright remains the runtime engine** for executing browser tests.
+- **Structured docs** in `docs/userstory/` and `docs/testCases/` provide the source material for AI-assisted workflows.
+- **GitHub Copilot agents** and **Claude skills** help plan, generate, review, and repair test code.
+- **Humans still orchestrate the workflow** today; background model services and autonomous healing loops are future roadmap items.
 
 ---
 
@@ -11,12 +18,18 @@ Automated end-to-end test suite for the [Desmos Graphing Calculator](https://www
 | [Playwright](https://playwright.dev/) | ^1.59.1 |
 | TypeScript / Node.js | via `@types/node ^25` |
 | Browsers | Chromium, Firefox |
+| AI workflow surfaces | GitHub Copilot agents + Claude skills |
 
 ---
 
 ## Project Structure
 
-```
+```html
+.github/
+  agents/                # GitHub Copilot agent definitions for planning, generation, healing, and audits
+.claude/
+  settings.json          # Shared Claude MCP configuration
+  */SKILL.md             # Claude skills for AI-assisted authoring and review
 src/
   testData/
     constants.ts          # Selectors, ARIA labels, keyboard shortcuts, timeouts
@@ -36,6 +49,26 @@ docs/
   projectContext.md      # Desmos selectors, known behaviours, challenges (read-only)
 playwright.config.ts
 ```
+
+## Current Workflow
+
+The intended workflow is:
+
+1. Capture intent in `docs/userstory/` and `docs/testCases/`.
+2. Use AI agents to plan scenarios and generate or extend Playwright coverage.
+3. Keep selectors, POMs, fixtures, and tests aligned with Desmos behaviour.
+4. Review generated code against project rules before merge.
+5. Use healing and validation agents when tests fail or selectors drift.
+
+Current GitHub Copilot agent roles live in `.github/agents/`:
+
+- `playwright-test-planner` — explores the app and creates test plans.
+- `playwright-test-generator` — turns plan steps into Playwright test code.
+- `playwright-test-healer` — diagnoses and repairs broken tests.
+- `playwright-test-coverage-auditor` — compares documented cases with automated coverage.
+- `desmos-selector-validator` — validates and refreshes locator strategy against the live UI.
+
+Shared Claude guidance lives in `.claude/` and `CLAUDE.md` and provides repo-specific rules for the same workflow.
 
 ---
 
@@ -57,16 +90,19 @@ npx playwright install
 
 ```bash
 # Run all tests (headless)
-npx playwright test
+npm test
 
 # Run with visible browser
-npx playwright test --headed
+npm run test:headed
 
 # Interactive UI mode
-npx playwright test --ui
+npm run test:ui
 
 # Single spec file
 npx playwright test src/tests/expression-entry.spec.ts
+
+# Graph settings feature
+npm run test:graph-settings
 
 # Single test by name
 npx playwright test -g "should render a parabola"
@@ -76,7 +112,7 @@ npx playwright test --project=chromium
 npx playwright test --project=firefox
 
 # View last HTML report
-npx playwright show-report
+npm run report
 ```
 
 ---
@@ -123,6 +159,7 @@ Feature areas planned (Page Objects and fixtures stubbed):
 All UI interaction is encapsulated in Page Object classes inside `src/pages/`. Tests never use locators directly — they call named action methods (`typeExpression`, `toggleExpressionVisibility`, etc.).
 
 Selector priority (highest to lowest):
+
 1. `aria-label` / role
 2. `.dcg-*` scoped CSS class
 3. Generic CSS
@@ -152,3 +189,5 @@ Graph coordinates are stored as Desmos graph units (e.g. `{ graphX: 2, graphY: 0
 - `docs/projectContext.md` — canonical reference for Desmos selectors, known DOM quirks, and testing constraints. **Read-only.**
 - `docs/userstory/` — user stories in Gherkin format, one file per feature.
 - `docs/testCases/` — test case definitions organised by `{type}/{feature}/testCase.md`.
+- `.github/agents/` — GitHub Copilot agents that support planning, generation, healing, selector validation, and coverage audits.
+- `.claude/` + `CLAUDE.md` — shared Claude configuration and project-specific authoring and review rules.

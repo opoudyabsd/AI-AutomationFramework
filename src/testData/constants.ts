@@ -1,5 +1,13 @@
 // Timeouts
 export const MATHQUILL_RENDER_DELAY = 300;
+// After resetView() the viewport animates over ~2 s; toHaveAttribute waits for the
+// aria-label to reach its final value (tracking animation progress), but Desmos needs
+// one additional settle period before canvas POI trace clicks are reliable.
+// 1000 ms gives Desmos one extra second after the aria-label settles to finish any
+// internal post-animation work before the trace click is issued.
+// Root cause of the original failure was a stale post-pan canvas state (fixed by
+// clicking mathInputField after panCanvas); this delay is now a general safety margin.
+export const DESMOS_ANIMATION_SETTLE_DELAY = 1000;
 
 // Selectors (reused across POMs / helpers)
 export const SELECTORS = {
@@ -19,6 +27,13 @@ export const SELECTORS = {
   // Exclude it so ariaLiveRegion points to Desmos's own announcement element.
   ARIA_LIVE_REGION: '[aria-live]:not(.dcg-mq-aria-alert)',
   COLOR_OPTION: '.dcg-color-tile',
+  // Axis bound inputs inside the Graph Settings panel — MathQuill fields with data-dcg-label.
+  // Live-verified: these are .dcg-mq-editable-field elements; fill() does not work.
+  // Use click() + End + Shift+Home + keyboard.type() to set values.
+  X_MIN_FIELD: '.dcg-mq-editable-field[data-dcg-label="xmin"]',
+  X_MAX_FIELD: '.dcg-mq-editable-field[data-dcg-label="xmax"]',
+  Y_MIN_FIELD: '.dcg-mq-editable-field[data-dcg-label="ymin"]',
+  Y_MAX_FIELD: '.dcg-mq-editable-field[data-dcg-label="ymax"]',
 } as const;
 
 // Aria labels

@@ -1,7 +1,7 @@
 import { test, expect } from '../../utils/fixtures/graph-settings.fixture';
 import { ATTRS, ATTR_VALUES } from '../../testData/cssConstant';
 
-test.describe('Graph Settings', { tag: ['@regression', '@graph-settings'] }, () => {
+test.describe('Graph Settings – Regression', { tag: ['@regression', '@graph-settings'] }, () => {
   test.beforeEach(async ({ graphSettingsPage }) => {
     await graphSettingsPage.goto();
   });
