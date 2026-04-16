@@ -4,7 +4,7 @@
 
 **Priority:** 3 — Accessibility requirement; users relying on screen readers must know the result of visibility toggle actions.
 
-**Related:** docs/userstory/E1_ExpressionEntry-GraphiRendering.md, TC-E1-04-003, TC-E1-03-004
+__Related:__ docs/userstory/E1_ExpressionEntry-GraphiRendering.md, TC-E1-04-003, TC-E1-03-004
 
 ## Preconditions
 
@@ -21,7 +21,7 @@
 
 ## Notes for Automation
 
-- **Selector:** ARIA live region (`role="status"`, `role="alert"`, or `aria-live` attributes) for the announcement; `.dcg-expression-icon` for the icon state
+- **Selector:** ARIA live region (`role="status"`, `role="alert"`, or `aria-live` attributes) for the announcement; the expression toggle button accessible name is the secondary proxy for state change
 - **Input method:** Focus `.dcg-mq-editable-field`, then `await page.keyboard.press('Control+Shift+O')` followed by `await page.keyboard.press('Enter')`
-- **Assertion strategy:** Assert that an ARIA live region contains text indicating the hidden or visible state change — inspect the live DOM for the exact ARIA live region selector and expected text before implementing
-- **Wait strategy:** Use `await expect(page.locator('[aria-live]')).toContainText(...)` after the key sequence — do not use `waitForTimeout`
+- **Assertion strategy:** Prefer asserting ARIA live-region text indicating the hidden or visible state change; if the live region remains empty or transient in the live DOM, treat the automation as blocked and record the toggle button accessible-name change as a lower-confidence proxy only
+- **Wait strategy:** Use `await expect(page.locator('[aria-live]:not(.dcg-mq-aria-alert)')).toContainText(...)` when stable text is exposed; do not use `waitForTimeout`

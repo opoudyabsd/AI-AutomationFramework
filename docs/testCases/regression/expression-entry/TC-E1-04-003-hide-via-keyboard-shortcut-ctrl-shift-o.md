@@ -4,7 +4,7 @@
 
 **Priority:** 3 — Keyboard accessibility path for hiding expressions; important for users who navigate without a mouse.
 
-**Related:** docs/userstory/E1_ExpressionEntry-GraphiRendering.md, TC-E1-04-001, TC-E1-04-004
+__Related:__ docs/userstory/E1_ExpressionEntry-GraphiRendering.md, TC-E1-04-001, TC-E1-04-004
 
 ## Preconditions
 
@@ -23,7 +23,7 @@
 
 ## Notes for Automation
 
-- **Selector:** `.dcg-mq-editable-field` for expression focus; `.dcg-expression-icon` for the resulting icon state
+- **Selector:** `.dcg-mq-editable-field` for expression focus; the expression toggle button accessible name changes between `Hide Expression N` and `Show Expression N`
 - **Input method:** Focus the expression row, then `await page.keyboard.press('Control+Shift+O')` followed by `await page.keyboard.press('Enter')` — verify this key combination opens the correct control in the live app
-- **Assertion strategy:** Assert the Color Icon or expression row has a hidden-state CSS class after the key sequence; use icon state as proxy for graph visibility change
-- **Wait strategy:** Use `await expect(page.locator('.dcg-expression-icon')).toHaveClass(/hidden/)` after the key sequence — do not use `waitForTimeout`
+- **Assertion strategy:** Assert the toggle button accessible name changes to `Show Expression N` after the key sequence; Desmos does not expose a stable hidden-state CSS class for the visual icon
+- **Wait strategy:** Use `await expect(expressionToggleButton).toHaveAccessibleName(/Show Expression/)` after the key sequence — do not use `waitForTimeout`

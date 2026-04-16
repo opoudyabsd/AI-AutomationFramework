@@ -4,7 +4,7 @@
 
 **Priority:** 3 — Accessibility requirement; ensures keyboard-only and assistive technology users are informed of state changes.
 
-**Related:** docs/userstory/E1_ExpressionEntry-GraphiRendering.md, TC-E1-03-001
+__Related:__ docs/userstory/E1_ExpressionEntry-GraphiRendering.md, TC-E1-03-001
 
 ## Preconditions
 
@@ -23,7 +23,7 @@
 
 ## Notes for Automation
 
-- **Selector:** ARIA live region (look for `role="status"`, `role="alert"`, or `aria-live` attributes in the DOM) for the screen reader announcement; `.dcg-expressionitem` for expression rows
+- **Selector:** `.dcg-expressionitem` for expression rows; the new MathQuill textbox remains screen-reader accessible via its labelled hidden textarea
 - **Input method:** `await page.keyboard.press('Enter')` while focus is on `.dcg-mq-editable-field`
-- **Assertion strategy:** Assert that an ARIA live region contains text announcing the new expression line; also assert `.dcg-expressionitem` count increased by 1
-- **Wait strategy:** Use `await expect(page.locator('[aria-live]')).toContainText(...)` — inspect the live DOM to identify the exact ARIA live region selector before implementing
+- **Assertion strategy:** Assert `.dcg-expressionitem` count increased by 1, the new textbox has an accessible name like `Expression N:`, and keyboard focus moves to that new textbox; use these as the stable automation proxy when no persistent live announcement text is exposed
+- **Wait strategy:** Use `await expect(expressionItems).toHaveCount(...)` and `await expect(newItem.getByRole('textbox')).toBeFocused()` — avoid `waitForTimeout`

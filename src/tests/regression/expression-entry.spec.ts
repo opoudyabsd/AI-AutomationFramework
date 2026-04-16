@@ -128,6 +128,7 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
       // MathQuill's <textarea> is CSS-hidden but screen-reader accessible via aria-labelledby.
       // toBeVisible() fails because it is intentionally hidden; check accessible name directly.
       await expect(newItem.getByRole('textbox')).toHaveAccessibleName(/Expression \d+:/);
+      await expect(newItem.getByRole('textbox')).toBeFocused();
     });
   });
 
@@ -163,130 +164,129 @@ test.describe('Expression Entry', { tag: ['@regression', '@expression-entry'] },
       // Arrange
       await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
 
-      // Act — key sequence opens style panel then confirms the first option (visibility toggle).
-      // hideExpressionViaKeyboard waits for the style panel to appear before pressing Enter.
+      // Act — follow the documented keyboard path directly.
       await calculatorPage.hideExpressionViaKeyboard();
 
       // Assert — button name changed to "Show Expression N" confirms the expression was hidden
       await expect(calculatorPage.expressionToggleButton).toHaveAccessibleName(/Show Expression/);
     });
-  });
 
-  test.describe('Style menu', () => {
-    // TC-E1-05-001 | Priority 3
-    test('should open Style menu when color icon is clicked and held', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+    test.describe('Style menu', () => {
+      // TC-E1-05-001 | Priority 3
+      test('should open Style menu when color icon is clicked and held', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
 
-      // Act — click({delay:700}) simulates click-and-hold (replaced dispatchEvent which was insufficient)
-      await calculatorPage.openStyleMenuViaClickHold();
+        // Act — click({delay:700}) simulates click-and-hold (replaced dispatchEvent which was insufficient)
+        await calculatorPage.openStyleMenuViaClickHold();
 
-      // Assert — style menu container becomes visible
-      // Selector unverified — confirm against live DOM before committing
-      await expect(calculatorPage.styleMenu).toBeVisible();
+        // Assert — style menu container becomes visible
+        // Selector unverified — confirm against live DOM before committing
+        await expect(calculatorPage.styleMenu).toBeVisible();
+      });
+
+      // TC-E1-05-002 | Priority 3
+      test('should update color icon when a new colour is selected in the Style menu', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+        await calculatorPage.openStyleMenuViaClickHold();
+        await expect(calculatorPage.styleMenu).toBeVisible();
+
+        // Act — color swatch selector unverified, confirm against live DOM before committing
+        await calculatorPage.selectFirstStyleColor();
+
+        // Assert — icon is still visible (color changed; exact attribute check
+        // requires live DOM inspection to identify the color-reflecting attribute)
+        await expect(calculatorPage.expressionIcon).toBeVisible();
+      });
+
+      // TC-E1-05-003 | Priority 3
+      test('should open Style menu via Ctrl+Shift+O keyboard shortcut', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+
+        // Act
+        await calculatorPage.openStyleMenuViaKeyboard();
+
+        // Assert — style menu container becomes visible
+        // Selector unverified — confirm against live DOM before committing
+        await expect(calculatorPage.styleMenu).toBeVisible();
+      });
     });
 
-    // TC-E1-05-002 | Priority 3
-    test('should update color icon when a new colour is selected in the Style menu', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
-      await calculatorPage.openStyleMenuViaClickHold();
-      await expect(calculatorPage.styleMenu).toBeVisible();
+    test.describe('Trace and points of interest', () => {
+      // TC-E1-07-001 | Priority 4
+      test('should display coordinate tooltip when a point on a graphed curve is clicked', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
 
-      // Act — color swatch selector unverified, confirm against live DOM before committing
-      await calculatorPage.selectFirstStyleColor();
+        // Act — graph coordinates converted to canvas pixels at runtime via bounding box
+        await calculatorPage.clickGraphAtGraphCoord(
+          graphCoordinates.curveOnParabola.graphX,
+          graphCoordinates.curveOnParabola.graphY,
+        );
 
-      // Assert — icon is still visible (color changed; exact attribute check
-      // requires live DOM inspection to identify the color-reflecting attribute)
-      await expect(calculatorPage.expressionIcon).toBeVisible();
-    });
+        // Assert
+        await expect(calculatorPage.traceCoordinates).toBeVisible();
+      });
 
-    // TC-E1-05-003 | Priority 3
-    test('should open Style menu via Ctrl+Shift+O keyboard shortcut', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+      // TC-E1-07-002 | Priority 3
+      test('should update coordinate tooltip as mouse moves along a graphed curve', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.sineExpression);
 
-      // Act
-      await calculatorPage.openStyleMenuViaKeyboard();
+        // Act — hover at first position; wait for tooltip and capture its text
+        await calculatorPage.hoverGraphAtGraphCoord(
+          graphCoordinates.sineWavePos1.graphX,
+          graphCoordinates.sineWavePos1.graphY,
+        );
+        await expect(calculatorPage.traceCoordinates).toBeVisible();
+        // Use innerText() (not textContent()) to get the rendered text,
+        // then assert it is non-empty before using it as a comparator.
+        // This prevents the not.toHaveText('') bug where an empty baseline
+        // would make the assertion trivially pass or always fail.
+        await expect(calculatorPage.traceCoordinates).not.toBeEmpty();
+        const coordsAtPos1 = (await calculatorPage.traceCoordinates.innerText()).trim();
 
-      // Assert — style menu container becomes visible
-      // Selector unverified — confirm against live DOM before committing
-      await expect(calculatorPage.styleMenu).toBeVisible();
-    });
-  });
+        // Act — move to a different position on the curve
+        await calculatorPage.hoverGraphAtGraphCoord(
+          graphCoordinates.sineWavePos2.graphX,
+          graphCoordinates.sineWavePos2.graphY,
+        );
 
-  test.describe('Trace and points of interest', () => {
-    // TC-E1-07-001 | Priority 4
-    test('should display coordinate tooltip when a point on a graphed curve is clicked', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.quadraticExpression);
+        // Assert — tooltip text has changed (not.toHaveText uses exact match with auto-retry)
+        await expect(calculatorPage.traceCoordinates).not.toHaveText(coordsAtPos1);
+      });
 
-      // Act — graph coordinates converted to canvas pixels at runtime via bounding box
-      await calculatorPage.clickGraphAtGraphCoord(
-        graphCoordinates.curveOnParabola.graphX,
-        graphCoordinates.curveOnParabola.graphY,
-      );
+      // TC-E1-07-003 | Priority 3
+      test('should display right intercept coordinates when clicking near x-axis intercept', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.interceptExpression);
 
-      // Assert
-      await expect(calculatorPage.traceCoordinates).toBeVisible();
-    });
+        // Act
+        await calculatorPage.clickGraphAtGraphCoord(
+          graphCoordinates.rightIntercept.graphX,
+          graphCoordinates.rightIntercept.graphY,
+        );
 
-    // TC-E1-07-002 | Priority 3
-    test('should update coordinate tooltip as mouse moves along a graphed curve', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.sineExpression);
+        // Assert — right intercept (2, 0)
+        await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.poiCoordinates);
+      });
 
-      // Act — hover at first position; wait for tooltip and capture its text
-      await calculatorPage.hoverGraphAtGraphCoord(
-        graphCoordinates.sineWavePos1.graphX,
-        graphCoordinates.sineWavePos1.graphY,
-      );
-      await expect(calculatorPage.traceCoordinates).toBeVisible();
-      // Use innerText() (not textContent()) to get the rendered text,
-      // then assert it is non-empty before using it as a comparator.
-      // This prevents the not.toHaveText('') bug where an empty baseline
-      // would make the assertion trivially pass or always fail.
-      await expect(calculatorPage.traceCoordinates).not.toBeEmpty();
-      const coordsAtPos1 = (await calculatorPage.traceCoordinates.innerText()).trim();
+      // TC-E1-07-004 | Priority 3
+      test('should display left intercept coordinates when clicking near x-axis intercept', async ({ calculatorPage }) => {
+        // Arrange
+        await calculatorPage.typeExpression(expressionEntryData.interceptExpression);
 
-      // Act — move to a different position on the curve
-      await calculatorPage.hoverGraphAtGraphCoord(
-        graphCoordinates.sineWavePos2.graphX,
-        graphCoordinates.sineWavePos2.graphY,
-      );
+        // Act
+        await calculatorPage.clickGraphAtGraphCoord(
+          graphCoordinates.leftIntercept.graphX,
+          graphCoordinates.leftIntercept.graphY,
+        );
 
-      // Assert — tooltip text has changed (not.toHaveText uses exact match with auto-retry)
-      await expect(calculatorPage.traceCoordinates).not.toHaveText(coordsAtPos1);
-    });
-
-    // TC-E1-07-003 | Priority 3
-    test('should display right intercept coordinates when clicking near x-axis intercept', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.interceptExpression);
-
-      // Act
-      await calculatorPage.clickGraphAtGraphCoord(
-        graphCoordinates.rightIntercept.graphX,
-        graphCoordinates.rightIntercept.graphY,
-      );
-
-      // Assert — right intercept (2, 0)
-      await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.poiCoordinates);
-    });
-
-    // TC-E1-07-004 | Priority 3
-    test('should display left intercept coordinates when clicking near x-axis intercept', async ({ calculatorPage }) => {
-      // Arrange
-      await calculatorPage.typeExpression(expressionEntryData.interceptExpression);
-
-      // Act
-      await calculatorPage.clickGraphAtGraphCoord(
-        graphCoordinates.leftIntercept.graphX,
-        graphCoordinates.leftIntercept.graphY,
-      );
-
-      // Assert — left intercept (−2, 0) using Unicode minus (U+2212) as rendered by Desmos
-      await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.leftInterceptCoords);
+        // Assert — left intercept (−2, 0) using Unicode minus (U+2212) as rendered by Desmos
+        await expect(calculatorPage.traceCoordinates).toContainText(expressionEntryData.leftInterceptCoords);
+      });
     });
   });
 });

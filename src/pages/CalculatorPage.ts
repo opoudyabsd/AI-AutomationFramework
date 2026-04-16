@@ -59,8 +59,9 @@ export class CalculatorPage {
 
     // When the style options panel is closed, the toggle button is named "Hide Expression N".
     // Ctrl+Shift+O (or click-and-hold) changes its name to "Hide Options for Expression N".
-    // Using that name change as the panel-open indicator; .dcg-options-menu CSS class not found in DOM.
-    this.styleMenu = this.expressionItem.getByRole('button', { name: /Options for Expression/ });
+    // In the live DOM that expanded control is not a child of the scoped expression row,
+    // so locate it from the expression list rather than from expressionItem.
+    this.styleMenu = this.expressionList.getByRole('button', { name: /Options for Expression/ }).first();
     this.graphCanvas = page.locator(SELECTORS.GRAPH_CANVAS);
     // .dcg-trace-coordinates CSS class no longer matches the live DOM.
     // The trace tooltip parent (dcg-tooltip-hit-area-container) holds the Export button but not
@@ -136,14 +137,11 @@ export class CalculatorPage {
   async hideExpressionViaKeyboard(): Promise<void> {
     await this.mathInputField.click();
     await this.page.keyboard.press(SHORTCUTS.OPEN_STYLE);
-    // Confirm the style panel opened via keyboard shortcut (button becomes "Hide Options…" [expanded]).
+    // Wait for the keyboard shortcut to move focus into the style options control,
+    // then close the popover and activate the now-restored hide/show toggle button.
     await this.styleMenu.waitFor({ state: 'visible' });
-    // Escape closes the panel and returns focus toward the expression item.
-    // The toggle button then reverts to its normal name "(Hide|Show) Expression N",
-    // making it discoverable by the expressionToggleButton locator.
     await this.page.keyboard.press('Escape');
     await this.expressionToggleButton.waitFor({ state: 'visible' });
-    // Activate the visibility toggle via keyboard (Enter on the focused button).
     await this.expressionToggleButton.press('Enter');
   }
 
@@ -202,7 +200,7 @@ export class CalculatorPage {
   private graphCoordToCanvasPixel(box: { width: number; height: number }, graphX: number, graphY: number): { x: number; y: number } {
     const xHalf = 10;                         // Desmos default x half-range
     const yHalf = xHalf * (box.height / box.width); // y range scales with aspect ratio
-    const x = Math.round(box.width  / 2 + (graphX / xHalf) * (box.width  / 2));
+    const x = Math.round(box.width / 2 + (graphX / xHalf) * (box.width / 2));
     const y = Math.round(box.height / 2 - (graphY / yHalf) * (box.height / 2));
     return { x, y };
   }
